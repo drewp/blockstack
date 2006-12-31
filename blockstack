@@ -5,7 +5,7 @@ http://developer.nomadph.com/guest001.html
 """
 
 from __future__ import division
-import sys, time, math, thread, threading
+import sys, time, math, thread, threading, random
 from math import degrees, atan2
 import pygame
 import Image, ImageFilter
@@ -67,23 +67,44 @@ def cube(color=(1,1,1), center=(0,0,0), side=1):
 
 
 def imageCard(multiImage):
-    """card facing +Z from 0<x<1 0<y<1"""
-    textureData = multiImage.asRgbString()
+    """card facing +Z from -1<x<1 -1<y<1"""
+    textureData = multiImage.asImage()
+    textureData = textureData.resize((256, 256)).tostring()
 
     glBindTexture(GL_TEXTURE_2D, 0)
     glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB,
-                  multiImage.size()[0],
-                  multiImage.size()[1], 0,
+                  256, #multiImage.size()[0],
+                  256, #multiImage.size()[1],
+                  0,
                   GL_RGB, GL_UNSIGNED_BYTE, textureData)
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
 
     glCallList(cardList)
-    
+
+def newPositions():
+    colors = ['red', 'blue', 'green']
+    random.shuffle(colors)
+    orient = random.choice(['flat', 'tri', 'tall'])
+    if orient == 'flat':
+        return {colors[0] : (-1, .5, 0),
+                colors[1] : (0, .5, 0),
+                colors[2] : (1, .5, 0)}
+    elif orient == 'tall':
+        return {colors[0] : (0, .5, 0),
+                colors[1] : (0, 1.5, 0),
+                colors[2] : (0, 2.5, 0)}
+    elif orient == 'tri':
+        return {colors[0] : (0, .5, 0),
+                colors[1] : (.5, 1.5, 0),
+                colors[2] : (1, 0.5, 0)}
 
 grabbed = [None]
 frames = [0]
+positions2 = newPositions()
+correctFrames = 0
 def draw (grab):
+    global positions2, correctFrames
     t1 = time.time()
     glClearColor(0.0, 0.0, 0.0, 0.0)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -95,18 +116,15 @@ def draw (grab):
     glDisable(GL_TEXTURE_2D)
     
     glPushMatrix()
-    glScalef(10, .01, 10)
+    glScalef(10, .01, 5)
     cube(color=(.2, .2, 1))
     glPopMatrix()
-
-    positions2 = dict(red=(0, .5, 0), blue=(1, .5, 0), green=(0, 1.5, 0))
-    positions2 = dict(red=(0, .5, 0), blue=(1, .5, 0), green=(2, 0.5, 0))
 
     frames[0] += 1
     matching = False
     glPushMatrix()
     if 1:
-        glTranslatef(2, 2, 2 + math.sin(time.time()) * .2)
+        glTranslatef(1, -.9, 3.2)
         glDisable(GL_LIGHTING)
         glEnable(GL_TEXTURE_2D)
 
@@ -136,10 +154,22 @@ def draw (grab):
         if matching:
             color = [.7 + .3 * x for x in color]
         cube(color=color, center=pos)
+
+    if matching:
+        correctFrames = correctFrames + 1
+        if correctFrames > 20:
+            positions2 = newPositions()
+            correctFrames = 0
+
     
     glFlush()
     pygame.display.flip()
     #print "draw", time.time() - t1
+
+def fixNegative(ang):
+    if ang < -3.0:
+        return 3.1415
+    return ang
 
 def comparePose(positions1, positions2):
     try:
@@ -147,8 +177,9 @@ def comparePose(positions1, positions2):
         for p in [positions1, positions2]:
             v1 = num.array(p['green']) - p['red']
             v2 = num.array(p['blue']) - p['green']
-            angles.append(num.array([atan2(v1[0], v1[1]),
-                                     atan2(v2[0], v2[1])]))
+            angles.append(num.array([fixNegative(atan2(v1[0], v1[1])),
+                                     fixNegative(atan2(v2[0], v2[1]))]))
+        print angles[0], angles[1]
         err = sum(x * x for x in (angles[0] - angles[1]))
         return err < .5
     except KeyError:
