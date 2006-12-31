@@ -1,0 +1,23 @@
+#!/usr/bin/python
+
+import sys
+sys.path.append("build/lib.linux-i686-2.4")
+import cam
+import pygame
+
+surf = pygame.display.set_mode((352 * 2, 288 * 2))
+
+cam.grab_init("/dev/video0")
+cam.set_pict(contrast=.99, brightness=.99)
+while 1:
+    s = cam.grab_frame()
+    img = pygame.image.fromstring(s[:352*288*3], (352, 288), "RGB")
+    img.set_alpha(128)
+
+    img = pygame.transform.scale2x(img)
+    
+    surf.blit(img, (0, 0))
+
+    pygame.display.update()
+
+    

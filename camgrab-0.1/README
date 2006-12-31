@@ -1,0 +1,43 @@
+
+camgrab v0.1
+------------
+
+  camgrab is a simple application which will use the Video4Linux 
+ API for grabbing a single image from a webcam device.
+
+  This is useful for scripted image comparison, a simple upload of
+ an image to a remote server or other tasks.
+
+
+Options
+-------
+
+  As the software is designed to be simple, and straightforward, there
+ are only a couple of options:
+
+ 	-device Name 
+	  Use the specified device for grabbing, default is /dev/video
+
+	-output file
+	  Write the captured image to the given filename, default is "shot.jpg"
+
+	-verbose
+	  Increase status reporting.
+
+	-version
+	  Display the version string.
+
+	-help
+	  Display brief instructions.
+
+
+Thanks
+------
+
+  This application was cobbled together with the aid of the bttv and
+ came source code.
+ 
+
+Steve
+--
+www.steve.org.uk
