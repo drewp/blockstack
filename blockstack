@@ -1,23 +1,88 @@
 #!/usr/bin/python
-
-import sys
+from __future__ import division
+import sys, time
 sys.path.append("build/lib.linux-i686-2.4")
 import cam
 import pygame
+import Image, ImageFilter
+import Numeric as num
+
+class AllImage(object):
+    def __init__(self, string, w, h):
+        self.w, self.h = w, h
+        self.string = string[:self.w * self.h * 3]
+        
+    def asArray(self):
+        a = num.fromstring(self.string, num.UnsignedInt8)
+        a.shape = self.h, self.w, 3
+        return a
+
+    def asSurface(self):
+        return pygame.image.fromstring(self.string, (self.w, self.h), "RGB")
+
+    def asImage(self):
+        return Image.fromstring("RGB", (self.w, self.h), self.string)
+
+
+def writeArray():
+    raise NotImplementedError
+    h,w = L.shape
+    b = num.repeat(L, 3, 1)
+    b.shape = h,w,3   
+    Image.fromstring("RGB",
+                     (b.shape[1], b.shape[0]),
+                     num.clip(b, 0, 255).astype('b').tostring()
+                     ).save("diff.ppm")
+    
 
 surf = pygame.display.set_mode((352 * 2, 288 * 2))
 
 cam.grab_init("/dev/video0")
-cam.set_pict(contrast=.99, brightness=.99)
+cam.set_pict(contrast=.6, brightness=.3)
 while 1:
-    s = cam.grab_frame()
-    img = pygame.image.fromstring(s[:352*288*3], (352, 288), "RGB")
-    img.set_alpha(128)
+    t1 = time.time()
+    i = AllImage(cam.grab_frame(), 352, 288)
+    print "grab %.04f" % (time.time() - t1)
 
-    img = pygame.transform.scale2x(img)
-    
+    img = i.asSurface()
+    #img.set_alpha(128)
+    #img = pygame.transform.scale2x(img)
     surf.blit(img, (0, 0))
+    print "draw %.04f" % (time.time() - t1)
 
-    pygame.display.update()
+    thumb = i.asImage()
+    thumb.thumbnail((43//2, 36//2), Image.ANTIALIAS)
 
+    a = AllImage(thumb.tostring(), thumb.size[0], thumb.size[1]).asArray()
+    print "conv %.04f" % (time.time() - t1)
+
+    for detectColor in [(203, 131, 146),
+                        (135, 148, 199),
+                        (37, 102, 118)
+                        ]:
+        b = num.absolute(a.astype('f') - detectColor)
+
+        L = num.sum(b, -1)
+
+        goodMatch = L < 100
+
+        hits = 0
+        ctr = num.zeros(2)
+
+        for y in range(a.shape[0]):
+            for x in range(a.shape[1]):
+                if goodMatch[y][x]:
+                    x1 = x / a.shape[1] * img.get_width()
+                    y1 = y / a.shape[0] * img.get_height()
+                    surf.fill((0,0,0), (x1-1, y1-1, 10, 10))
+                    surf.fill(detectColor, (x1, y1, 8, 8))
+                    hits += 1
+                    ctr += [x, y]
+        if hits > .10 * (a.shape[0] *  a.shape[1]):
+            ctr = ctr / hits
+            x, y = ctr / [a.shape[1], a.shape[0]] * img.get_size()
+            surf.fill((255,255,255), (x, y, 10, 10))
+                    
+    print "detect %.04f" % (time.time() - t1)
     
+    pygame.display.update()

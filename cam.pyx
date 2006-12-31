@@ -50,6 +50,7 @@ def grab_frame():
     if ioctl(grab_fd, VIDIOCSYNC, &i) == -1:
         raise ValueError("ioctl VIDIOCSYNC")
 
+    # red/blue switch in-place on the mmap buffer
     for i in xrange(0, 352 * 288 * 3, 3):
         grab_data[i], grab_data[i+2] = grab_data[i+2], grab_data[i]
 
