@@ -8,6 +8,11 @@ cdef extern from "Python.h":
                                int *buffer_len) except -1
     object PyString_FromStringAndSize(char *v, int len)
     char* PyString_AsString(object string)
+    
+cdef extern from "pythread.h":
+     ctypedef struct PyThreadState
+     PyThreadState *PyEval_SaveThread()
+     void PyEval_RestoreThread(PyThreadState *_save)
 
 cdef extern from "sys/ioctl.h":
     int ioctl(int d, int request, ...)
@@ -44,16 +49,26 @@ def grab_frame():
     if grab_fd == -1:
         raise ValueError("Error in grab_one - not initialized")
 
+    cdef PyThreadState *_save
+    _save = PyEval_SaveThread()
+     
     if ioctl(grab_fd, VIDIOCMCAPTURE, &grab_buf) == -1:
+        PyEval_RestoreThread(_save)
         raise ValueError("ioctl VIDIOCMCAPTURE")
 
     if ioctl(grab_fd, VIDIOCSYNC, &i) == -1:
+        PyEval_RestoreThread(_save)
         raise ValueError("ioctl VIDIOCSYNC")
 
-    # red/blue switch in-place on the mmap buffer
-    for i in xrange(0, 352 * 288 * 3, 3):
-        grab_data[i], grab_data[i+2] = grab_data[i+2], grab_data[i]
+    PyEval_RestoreThread(_save)
 
+    # red/blue switch in-place on the mmap buffer
+    i = 0
+    while i < 352 * 288 * 3:
+        grab_data[i], grab_data[i+2] = grab_data[i+2], grab_data[i]
+        i = i + 3
+
+     
     return PyString_FromStringAndSize(<char *>grab_data, grab_size)
 
 

@@ -22,6 +22,8 @@ class MultiImage(object):
     def asImage(self):
         return Image.fromstring("RGB", (self.w, self.h), self.string)
 
+    def asRgbString(self):
+        return self.string
 
 def writeArray():
     raise NotImplementedError

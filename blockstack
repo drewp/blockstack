@@ -1,43 +1,228 @@
 #!/usr/bin/python
+"""
+see also:
+http://developer.nomadph.com/guest001.html
+"""
+
 from __future__ import division
-import sys, time
-sys.path.append("build/lib.linux-i686-2.4")
-import cam, vision
+import sys, time, math, thread, threading
+from math import degrees, atan2
 import pygame
 import Image, ImageFilter
 import Numeric as num
+from OpenGL import GL, GLUT, GLU
+from OpenGL.GL import *
+
+sys.path.append("build/lib.linux-i686-2.4")
+import cam, vision
 from multiimage import MultiImage
 
-def writeArray():
-    raise NotImplementedError
-    h,w = L.shape
-    b = num.repeat(L, 3, 1)
-    b.shape = h,w,3   
-    Image.fromstring("RGB",
-                     (b.shape[1], b.shape[0]),
-                     num.clip(b, 0, 255).astype('b').tostring()
-                     ).save("diff.ppm")
+
+def openglSetup():
+    global cardList
+    GLUT.glutInit(sys.argv)
+
+    glClearColor (0.0, 0.0, 0.0, 0.0)
+    glShadeModel (GL_SMOOTH)
+    glEnable(GL_COLOR_MATERIAL)
+
+    glLightfv(GL_LIGHT0, GL_AMBIENT, [0.0, 0.0, 0.0, 1.0])
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, [1.0, 1.0, 1.0, 1.0])
+    glLightfv(GL_LIGHT0, GL_POSITION, [0.0, 3.0, 3.0, 0.0])
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
+    glLightModelfv(GL_LIGHT_MODEL_LOCAL_VIEWER, [0])
+
+    #glFrontFace(GL_CW)
+    glEnable(GL_LIGHTING)
+    glEnable(GL_LIGHT0)
+    #glEnable(GL_AUTO_NORMAL)
+    #glEnable(GL_NORMALIZE)
+    glEnable(GL_DEPTH_TEST) 
+
+
+    glViewport (0, 0, surf.get_width(), surf.get_height())
+    glMatrixMode (GL_PROJECTION)
+    glLoadIdentity ()
+    glFrustum (-1.0, 1.0, -1.0, 1.0, 1.5, 20.0)
+    glMatrixMode (GL_MODELVIEW)
+
+    cardList = glGenLists(1)
+    glNewList(cardList, GL_COMPILE)
+    glColor3f(1,1,1)
+    glBegin(GL_QUADS)
+    glTexCoord2f(0.0, 1.0); glVertex3f(-1.0, -1.0,  1.0)
+    glTexCoord2f(1.0, 1.0); glVertex3f( 1.0, -1.0,  1.0)
+    glTexCoord2f(1.0, 0.0); glVertex3f( 1.0, 1.0,  1.0)
+    glTexCoord2f(0.0, 0.0); glVertex3f(-1.0, 1.0,  1.0)
+    glEnd()
+    glEndList()
+
+def cube(color=(1,1,1), center=(0,0,0), side=1):
+    glColor3f(*color)
+    glPushMatrix()
+    glTranslatef(*center)
+    GLUT.glutSolidCube(side)
+    glPopMatrix()
+
+
+
+def imageCard(multiImage):
+    """card facing +Z from 0<x<1 0<y<1"""
+    textureData = multiImage.asRgbString()
+
+    glBindTexture(GL_TEXTURE_2D, 0)
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB,
+                  multiImage.size()[0],
+                  multiImage.size()[1], 0,
+                  GL_RGB, GL_UNSIGNED_BYTE, textureData)
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+
+    glCallList(cardList)
     
 
-surf = pygame.display.set_mode((352 * 2, 288 * 2))
-
-cam.grab_init("/dev/video0")
-cam.set_pict(contrast=.6, brightness=.3)
-while 1:
+grabbed = [None]
+frames = [0]
+def draw (grab):
     t1 = time.time()
-    i = MultiImage(cam.grab_frame(), 352, 288)
-    print "grab %.04f" % (time.time() - t1)
+    glClearColor(0.0, 0.0, 0.0, 0.0)
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    glLoadIdentity ()
+    GLU.gluLookAt (0.0, 0.7, 8.0,
+                   0.0, 0.5, 0.0,
+                   0.0, 1.0, 0.0)
 
-    img = i.asSurface()
-    #img.set_alpha(128)
-    #img = pygame.transform.scale2x(img)
-    surf.blit(img, (0, 0))
-    print "draw %.04f" % (time.time() - t1)
-
-    position = vision.findBlocks(i, surf)
-    print position
-
-
-    print "detect %.04f" % (time.time() - t1)
+    glDisable(GL_TEXTURE_2D)
     
-    pygame.display.update()
+    glPushMatrix()
+    glScalef(10, .01, 10)
+    cube(color=(.2, .2, 1))
+    glPopMatrix()
+
+    positions2 = dict(red=(0, .5, 0), blue=(1, .5, 0), green=(0, 1.5, 0))
+    positions2 = dict(red=(0, .5, 0), blue=(1, .5, 0), green=(2, 0.5, 0))
+
+    frames[0] += 1
+    matching = False
+    glPushMatrix()
+    if 1:
+        glTranslatef(2, 2, 2 + math.sin(time.time()) * .2)
+        glDisable(GL_LIGHTING)
+        glEnable(GL_TEXTURE_2D)
+
+        # without threads, i call grab() here
+        grab.grab()
+
+        if grab.lastFrame:
+            imageCard(grab.lastFrame)
+            if grab.lastPosition:
+                for colorName, pos in grab.lastPosition.items():
+                    rgb = vision.colors[colorName]
+                    glColor3f(*(x / 255 for x in rgb))
+                    glPushMatrix()
+                    if 1:
+                        glTranslatef(pos[0] * 2 - 1, pos[1] * 2 - 1, 1)
+                        GLUT.glutWireCube(.1)
+                    glPopMatrix()
+
+                matching = comparePose(grab.lastPosition, positions2)
+
+        glEnable(GL_LIGHTING)
+        glDisable(GL_TEXTURE_2D)
+    glPopMatrix()
+
+    for name, pos in positions2.items():
+        color = num.array(vision.colors[name]) / 255
+        if matching:
+            color = [.7 + .3 * x for x in color]
+        cube(color=color, center=pos)
+    
+    glFlush()
+    pygame.display.flip()
+    #print "draw", time.time() - t1
+
+def comparePose(positions1, positions2):
+    try:
+        angles = []
+        for p in [positions1, positions2]:
+            v1 = num.array(p['green']) - p['red']
+            v2 = num.array(p['blue']) - p['green']
+            angles.append(num.array([atan2(v1[0], v1[1]),
+                                     atan2(v2[0], v2[1])]))
+        err = sum(x * x for x in (angles[0] - angles[1]))
+        return err < .5
+    except KeyError:
+        return False
+
+class GrabFrames(object):
+    def __init__(self):
+        cam.grab_init("/dev/video0")
+        cam.set_pict(contrast=.6, brightness=.3)
+        self.lastFrame = None
+        self.lastPosition = None
+
+    def run(self):
+        while 1:
+            self.grab()
+
+    def grab(self):
+        t1 = time.time()
+
+        newstr = cam.grab_frame()
+        newstr = newstr[0] + newstr[1:]
+        self.lastFrame = MultiImage(newstr, 352, 288)
+
+        #print "grab %.04f" % (time.time() - t1)
+
+        #img = self.lastFrame.asSurface()
+        #surf.blit(img, (0, 0))
+
+        position = vision.findBlocks(self.lastFrame)#, surf)
+        self.lastPosition = position
+
+
+        #pygame.display.update()
+        
+
+grab = GrabFrames()
+#thread.start_new_thread(grab.run, ())
+
+
+surf = pygame.display.set_mode((352 * 2, 288 * 2),
+                               pygame.OPENGL |
+                               pygame.DOUBLEBUF)
+
+openglSetup()
+
+def loop():
+    while 1:
+        try:
+            event=pygame.event.poll ()
+
+            if event.type is pygame.QUIT:
+              sys.exit(0)
+
+            draw(grab)
+
+            if event.type is pygame.KEYDOWN:
+              if event.key is pygame.K_ESCAPE:
+                sys.exit(0)
+              if event.key is pygame.K_1:
+                direction2=2
+        except KeyboardInterrupt:
+            break
+
+import profile as profileMod
+import pstats
+
+def run(func, profile=True, filename="/tmp/pro"):
+    if not profile:
+        func()
+        return
+    pr = profileMod.Profile()
+    pr.runcall(func)
+    p = pstats.Stats(pr)
+    p.sort_stats('time')
+    p.print_stats(60)
+
+run(loop, False)

@@ -39,7 +39,7 @@ def findBlocks(multiImage, feedbackSurf=None):
                     ctr += [x, y]
         if hits > .10 * (a.shape[0] *  a.shape[1]):
             ctr = ctr / hits
-            ret[colorName] = ctr / [a.shape[1], a.shape[0]]
+            ret[colorName] = ctr[0] / a.shape[1], 1 - (ctr[1] / a.shape[0])
 
             if feedbackSurf:
                 x, y = ctr / [a.shape[1], a.shape[0]] * multiImage.size()
