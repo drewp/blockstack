@@ -64,7 +64,7 @@ def grab_frame():
 
     # red/blue switch in-place on the mmap buffer
     i = 0
-    while i < 352 * 288 * 3:
+    while i < grab_size:
         grab_data[i], grab_data[i+2] = grab_data[i+2], grab_data[i]
         i = i + 3
 

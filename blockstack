@@ -57,11 +57,14 @@ def openglSetup():
     glEnd()
     glEndList()
 
-def cube(color=(1,1,1), center=(0,0,0), side=1):
+def cube(color=(1,1,1), center=(0,0,0), side=1, wire=False):
     glColor3f(*color)
     glPushMatrix()
     glTranslatef(*center)
-    GLUT.glutSolidCube(side)
+    if wire:
+        GLUT.glutWireCube(side)
+    else:
+        GLUT.glutSolidCube(side)
     glPopMatrix()
 
 
@@ -82,6 +85,15 @@ def imageCard(multiImage):
 
     glCallList(cardList)
 
+
+class Pose(object):
+    pass
+
+class Game(object):
+    def __init__(self):
+        self.pose = Pose()
+        
+
 def newPositions():
     colors = ['red', 'blue', 'green']
     random.shuffle(colors)
@@ -100,11 +112,10 @@ def newPositions():
                 colors[2] : (1, 0.5, 0)}
 
 grabbed = [None]
-frames = [0]
 positions2 = newPositions()
-correctFrames = 0
+correctFrameStart = None
 def draw (grab):
-    global positions2, correctFrames
+    global positions2, correctFrameStart
     t1 = time.time()
     glClearColor(0.0, 0.0, 0.0, 0.0)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -120,30 +131,28 @@ def draw (grab):
     cube(color=(.2, .2, 1))
     glPopMatrix()
 
-    frames[0] += 1
     matching = False
     glPushMatrix()
     if 1:
         glTranslatef(1, -.9, 3.2)
+        # flip to compensate for the camera facing the user
+        glScalef(-1, 1, 1)
+        
         glDisable(GL_LIGHTING)
         glEnable(GL_TEXTURE_2D)
 
         # without threads, i call grab() here
-        grab.grab()
+        #grab.grab()
 
         if grab.lastFrame:
             imageCard(grab.lastFrame)
             if grab.lastPosition:
                 for colorName, pos in grab.lastPosition.items():
-                    rgb = vision.colors[colorName]
-                    glColor3f(*(x / 255 for x in rgb))
-                    glPushMatrix()
-                    if 1:
-                        glTranslatef(pos[0] * 2 - 1, pos[1] * 2 - 1, 1)
-                        GLUT.glutWireCube(.1)
-                    glPopMatrix()
-
-                matching = comparePose(grab.lastPosition, positions2)
+                    cube(color=(x / 255 for x in vision.colors[colorName]),
+                         center=(pos[0] * 2 - 1, pos[1] * 2 - 1, 1),
+                         side=.1, wire=True)
+                    
+                matching = vision.comparePose(grab.lastPosition, positions2)
 
         glEnable(GL_LIGHTING)
         glDisable(GL_TEXTURE_2D)
@@ -156,34 +165,19 @@ def draw (grab):
         cube(color=color, center=pos)
 
     if matching:
-        correctFrames = correctFrames + 1
-        if correctFrames > 20:
+        if correctFrameStart is None:
+            correctFrameStart = time.time()
+        if time.time() > correctFrameStart + .5:
             positions2 = newPositions()
-            correctFrames = 0
+            correctFrameStart = None
+            beep.play()
+    else:
+        correctFrameStart = None
 
     
     glFlush()
     pygame.display.flip()
     #print "draw", time.time() - t1
-
-def fixNegative(ang):
-    if ang < -3.0:
-        return 3.1415
-    return ang
-
-def comparePose(positions1, positions2):
-    try:
-        angles = []
-        for p in [positions1, positions2]:
-            v1 = num.array(p['green']) - p['red']
-            v2 = num.array(p['blue']) - p['green']
-            angles.append(num.array([fixNegative(atan2(v1[0], v1[1])),
-                                     fixNegative(atan2(v2[0], v2[1]))]))
-        print angles[0], angles[1]
-        err = sum(x * x for x in (angles[0] - angles[1]))
-        return err < .5
-    except KeyError:
-        return False
 
 class GrabFrames(object):
     def __init__(self):
@@ -216,8 +210,9 @@ class GrabFrames(object):
         
 
 grab = GrabFrames()
-#thread.start_new_thread(grab.run, ())
-
+thread.start_new_thread(grab.run, ())
+pygame.init()
+beep = pygame.mixer.Sound("Question.wav")
 
 surf = pygame.display.set_mode((352 * 2, 288 * 2),
                                pygame.OPENGL |
@@ -243,17 +238,17 @@ def loop():
         except KeyboardInterrupt:
             break
 
-import profile as profileMod
-import pstats
 
 def run(func, profile=True, filename="/tmp/pro"):
     if not profile:
         func()
         return
+    import profile as profileMod
+    import pstats
     pr = profileMod.Profile()
     pr.runcall(func)
     p = pstats.Stats(pr)
     p.sort_stats('time')
     p.print_stats(60)
 
-run(loop, False)
+run(loop, 0)

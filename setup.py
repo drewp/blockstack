@@ -1,6 +1,20 @@
 from distutils.core import setup
 from distutils.extension import Extension
 from Pyrex.Distutils import build_ext
+
+"""needs ubuntu pkgs:
+
+python2.4-opengl
+giblib-dev
+libimlib2-dev
+
+libsndobj-dev
+libjack0.100.0-0
+
+
+"""
+
+
 setup(
   name = "cam",
   version="1.0",
