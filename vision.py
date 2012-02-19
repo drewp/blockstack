@@ -1,35 +1,36 @@
 from __future__ import division
 from math import atan2
 import Image
-import Numeric as num
+import numpy as num
 from multiimage import MultiImage
 
-colors = dict(red=(203, 131, 146),
-              blue=(135, 148, 199),
-              green=(37, 102, 118))
+colors = dict(red=(140, 0, 0),
+              green=(0, 50, 10),
+              blue=(0, 5, 110),
+              )
 
 def findBlocks(multiImage, feedbackSurf=None):
     """colorName : (x,y)
     in relative (0 to 1) coords. Draws on the optional pygame surface"""
     
     thumb = multiImage.asImage()
-    thumb.thumbnail((43//2, 36//2), Image.ANTIALIAS)
+    thumb.thumbnail((100, 100), Image.ANTIALIAS)
 
     a = MultiImage(thumb.tostring(), thumb.size[0], thumb.size[1]).asArray()
-
+    sizeThreshold = .01 * (a.shape[0] *  a.shape[1])
     ret = {}
     for colorName, detectColor in colors.items():
         b = num.absolute(a.astype('f') - detectColor)
 
         L = num.sum(b, -1)
 
-        goodMatch = L < 100
+        goodMatch = L < 50
 
         hits = 0
         ctr = num.zeros(2)
 
-        for y in range(a.shape[0]):
-            for x in range(a.shape[1]):
+        for y in xrange(a.shape[0]):
+            for x in xrange(a.shape[1]):
                 if goodMatch[y][x]:
                     if feedbackSurf:
                         x1, y1 = (num.array([x, y]) /
@@ -38,7 +39,7 @@ def findBlocks(multiImage, feedbackSurf=None):
                         feedbackSurf.fill(detectColor, (x1, y1, 8, 8))
                     hits += 1
                     ctr += [x, y]
-        if hits > .10 * (a.shape[0] *  a.shape[1]):
+        if hits > sizeThreshold:
             ctr = ctr / hits
             # xflip is for the camera facing the user;
             # yflip is for some other reason I can't remember
@@ -48,7 +49,7 @@ def findBlocks(multiImage, feedbackSurf=None):
             if feedbackSurf:
                 x, y = ctr / [a.shape[1], a.shape[0]] * multiImage.size()
                 feedbackSurf.fill((255,255,255), (x, y, 10, 10))
-
+        print "%s %r hits=%s thresh=%s" % (colorName, ret.get(colorName), hits, sizeThreshold)
     return ret
 
 

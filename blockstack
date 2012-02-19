@@ -9,12 +9,13 @@ import sys, time, math, thread, threading, random
 from math import degrees, atan2
 import pygame
 import Image, ImageFilter
-import Numeric as num
+import numpy as num
 from OpenGL import GL, GLUT, GLU
 from OpenGL.GL import *
 
-sys.path.append("build/lib.linux-i686-2.4")
-import cam, vision
+from opencv import highgui
+
+import vision
 from multiimage import MultiImage
 
 
@@ -114,9 +115,8 @@ def newPositions():
 grabbed = [None]
 positions2 = newPositions()
 correctFrameStart = None
-def draw (grab):
-    global positions2, correctFrameStart
-    t1 = time.time()
+
+def glSetup():
     glClearColor(0.0, 0.0, 0.0, 0.0)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity ()
@@ -125,11 +125,19 @@ def draw (grab):
                    0.0, 1.0, 0.0)
 
     glDisable(GL_TEXTURE_2D)
-    
+
+def groundPlane():
     glPushMatrix()
     glScalef(10, .01, 5)
     cube(color=(.2, .2, 1))
     glPopMatrix()
+
+def draw (grab):
+    global positions2, correctFrameStart
+    t1 = time.time()
+
+    glSetup()
+    groundPlane()
 
     matching = False
     glPushMatrix()
@@ -142,7 +150,7 @@ def draw (grab):
         glEnable(GL_TEXTURE_2D)
 
         # without threads, i call grab() here
-        #grab.grab()
+        grab.grab()
 
         if grab.lastFrame:
             imageCard(grab.lastFrame)
@@ -177,12 +185,12 @@ def draw (grab):
     
     glFlush()
     pygame.display.flip()
-    #print "draw", time.time() - t1
+    print "draw", time.time() - t1
 
 class GrabFrames(object):
     def __init__(self):
-        cam.grab_init("/dev/video0")
-        cam.set_pict(contrast=.6, brightness=.3)
+        self.camera = highgui.cvCreateCameraCapture(0)
+
         self.lastFrame = None
         self.lastPosition = None
 
@@ -193,13 +201,13 @@ class GrabFrames(object):
     def grab(self):
         t1 = time.time()
 
-        newstr = cam.grab_frame()
-        newstr = newstr[0] + newstr[1:]
-        self.lastFrame = MultiImage(newstr, 352, 288)
+        im = highgui.cvQueryFrame(self.camera)
+        newstr = im.imageData
+        self.lastFrame = MultiImage(newstr, 640, 480, flipColor=True)
 
         #print "grab %.04f" % (time.time() - t1)
 
-        #img = self.lastFrame.asSurface()
+        img = self.lastFrame.asSurface()
         #surf.blit(img, (0, 0))
 
         position = vision.findBlocks(self.lastFrame)#, surf)
@@ -209,14 +217,14 @@ class GrabFrames(object):
         #pygame.display.update()
         
 
-grab = GrabFrames()
-thread.start_new_thread(grab.run, ())
-pygame.init()
-beep = pygame.mixer.Sound("Question.wav")
-
-surf = pygame.display.set_mode((352 * 2, 288 * 2),
+surf = pygame.display.set_mode((640, 480),
                                pygame.OPENGL |
                                pygame.DOUBLEBUF)
+
+grab = GrabFrames()
+#thread.start_new_thread(grab.run, ())
+pygame.init()
+beep = pygame.mixer.Sound("Question.wav")
 
 openglSetup()
 
