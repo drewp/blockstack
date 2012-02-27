@@ -1,262 +1,315 @@
-#!/usr/bin/python
+#!bin/python
 """
 see also:
 http://developer.nomadph.com/guest001.html
 """
 
 from __future__ import division
-import sys, time, math, thread, threading, random
+import sys, time, math, thread, threading, random, glob, colorsys, logging
 from math import degrees, atan2
+from twisted.python.util import sibpath
+
+import gobject
+gobject.threads_init()
+import gtk, gst, goocanvas
+
 import pygame
 import Image, ImageFilter
-import numpy as num
-from OpenGL import GL, GLUT, GLU
-from OpenGL.GL import *
+import numpy
 
-from opencv import highgui
+from gtk.gtkgl.apputils import GLScene, GLArea
+
+sys.path.append("OpenCV-2.3.1/lib")
+import cv2
 
 import vision
 from multiimage import MultiImage
+from gamescene import GameScene
+from hsv import toHsv, rgb_to_hsv, hsv_to_rgb
+
+sys.path.append("../webcam2")
+import v4laccess
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger()
+numpy.seterr(divide='ignore')
+numpy.set_printoptions(precision=4, linewidth=200, suppress=True,
+                       threshold=4000)
+
+def logTime(func):
+    def inner(*args, **kw):
+        t1 = time.time()
+        try:
+            ret = func(*args, **kw)
+        finally:
+            log.info("Call to %s took %.1f ms" % (
+                func.__name__, 1000 * (time.time() - t1)))
+        return ret
+    return inner
+
+def labeledScale(name, config, cb):
+    row = gtk.VBox()
+    row.pack_start(gtk.Label(name))
+    adj = gtk.Adjustment(lower=config['minimum'],
+                         upper=config['maximum'],
+                         step_incr=config['step'],
+                         value=config['value'])
+
+    if cb is not None:
+        def valueChanged(adj):
+            print "changed", adj
+            cb(adj.get_value())
+        adj.connect("value-changed", valueChanged)
+    scl = gtk.HScale(adj)
+    scl.set_digits(2)
+    scl.set_property('value-pos', gtk.POS_LEFT)
+    row.pack_start(scl)
+    return row, adj
+
+class VideoControls(object):
+    """make gtk controls for adjusting the v4l parameters of a camera"""
+    def __init__(self, devicePath, widgetParent):
+        self.dev = v4laccess.Device(devicePath)
+        for name, config in sorted(self.dev.getControls().items()):
+            if 'menu' in config:
+                continue # not supported, probably just powerline frequency
+
+            row, adj = labeledScale(name, config,
+                                    lambda v: self.dev.setControl(name, v))
+            widgetParent.pack_start(row)
+
+        widgetParent.show_all()
+
+class BlockSats(object):
+    """sliders for picking the saturation of each block color"""
+    def __init__(self, parent):
+        self.colors = list('rgb')
+        self.adjs = {}
+        for color in self.colors:
+
+            row, adj = labeledScale(
+                color,
+                dict(minimum=0, maximum=1, step=.01,
+                     # i could take a pic of all the blocks and
+                     # cluster the hues to get these
+                     value=dict(r=0.01, g=.31, b=.7)[color]), None)
+            self.adjs[color] = adj
+            parent.pack_start(row)
+        parent.show_all()
+
+    def getSat(self, color):
+        return self.adjs[color].get_value()
+    
+    def previewColor(self, color):
+        return colorsys.hsv_to_rgb(self.getSat(color), 1, 1)
+
+class VideoProcessSink(gst.Element):
+    _sinkpadtemplate = gst.PadTemplate ("sinkpadtemplate",
+                                        gst.PAD_SINK,
+                                        gst.PAD_ALWAYS,
+                                        gst.caps_new_any())
+    def __init__(self, rawVideoWidget):
+        gst.Element.__init__(self)
+        self.rawVideoWidget = rawVideoWidget
+        self.sinkpad = gst.Pad(self._sinkpadtemplate, "sink")
+        self.add_pad(self.sinkpad)
+        self.sinkpad.set_chain_function(self.chainfunc)
+
+    def chainfunc(self, pad, buffer):
 
 
-def openglSetup():
-    global cardList
-    GLUT.glutInit(sys.argv)
+        try:
+            print "hello frame", buffer
+            
+            self.rawVideoWidget.set_from_pixbuf()
 
-    glClearColor (0.0, 0.0, 0.0, 0.0)
-    glShadeModel (GL_SMOOTH)
-    glEnable(GL_COLOR_MATERIAL)
+            cap = buffer.caps[0]
+            img = Image.fromstring('RGB', (cap['width'], cap['height']),
+                                   buffer.data)
+            self.imagesToSave.put((position, img, buffer.timestamp))
+        except:
+            traceback.print_exc()
 
-    glLightfv(GL_LIGHT0, GL_AMBIENT, [0.0, 0.0, 0.0, 1.0])
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, [1.0, 1.0, 1.0, 1.0])
-    glLightfv(GL_LIGHT0, GL_POSITION, [0.0, 3.0, 3.0, 0.0])
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
-    glLightModelfv(GL_LIGHT_MODEL_LOCAL_VIEWER, [0])
+        return gst.FLOW_OK
 
-    #glFrontFace(GL_CW)
-    glEnable(GL_LIGHTING)
-    glEnable(GL_LIGHT0)
-    #glEnable(GL_AUTO_NORMAL)
-    #glEnable(GL_NORMALIZE)
-    glEnable(GL_DEPTH_TEST) 
+gobject.type_register(VideoProcessSink)
 
+class VideoPipeline(object):
+    """
+    gstreamer pipeline from input video to display
 
-    glViewport (0, 0, surf.get_width(), surf.get_height())
-    glMatrixMode (GL_PROJECTION)
-    glLoadIdentity ()
-    glFrustum (-1.0, 1.0, -1.0, 1.0, 1.5, 20.0)
-    glMatrixMode (GL_MODELVIEW)
+    check out frei0r-filter-k-means-clustering too!
+    """
+    def __init__(self, videoDevice, rawVideoWidget, hueWidget, hueMatchVideo,
+                 blobBox,
+                 adjGet, blockSats):
+        self.adjGet = adjGet
+        self.blockSats = blockSats
+        self.hueWidget = hueWidget
+        self.hueMatchVideo = hueMatchVideo
+        pipe = ("v4l2src device=%(videoDevice)s name=src ! "
+                "videorate ! video/x-raw-rgb,framerate=15/1 ! "
+                #"videotestsrc is-live=true name=src ! "
+#                "ffmpegcolorspace ! "
+                "videoscale ! video/x-raw-rgb,width=160,height=120 ! "
+                "gdkpixbufsink name=sink"
+                ) % vars()
+        self.pipeline = gst.parse_launch(pipe)
 
-    cardList = glGenLists(1)
-    glNewList(cardList, GL_COMPILE)
-    glColor3f(1,1,1)
-    glBegin(GL_QUADS)
-    glTexCoord2f(0.0, 1.0); glVertex3f(-1.0, -1.0,  1.0)
-    glTexCoord2f(1.0, 1.0); glVertex3f( 1.0, -1.0,  1.0)
-    glTexCoord2f(1.0, 0.0); glVertex3f( 1.0, 1.0,  1.0)
-    glTexCoord2f(0.0, 0.0); glVertex3f(-1.0, 1.0,  1.0)
-    glEnd()
-    glEndList()
+        sink = self.pipeline.get_by_name("sink")
 
-def cube(color=(1,1,1), center=(0,0,0), side=1, wire=False):
-    glColor3f(*color)
-    glPushMatrix()
-    glTranslatef(*center)
-    if wire:
-        GLUT.glutWireCube(side)
-    else:
-        GLUT.glutSolidCube(side)
-    glPopMatrix()
+        def onMsg(bus, msg):
+            if msg.src == sink and msg.structure.get_name() == 'pixbuf':
+                pb = msg.structure['pixbuf']
+                rawVideoWidget.set_from_pixbuf(pb)
+                hue, mask = self.updateHuePic(pb)
+                matches = self.updateSatMatchPic(hue, mask)
+                centers = self.updateBlobPic(matches)
+            return True
 
-
-
-def imageCard(multiImage):
-    """card facing +Z from -1<x<1 -1<y<1"""
-    textureData = multiImage.asImage()
-    textureData = textureData.resize((256, 256)).tostring()
-
-    glBindTexture(GL_TEXTURE_2D, 0)
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB,
-                  256, #multiImage.size()[0],
-                  256, #multiImage.size()[1],
-                  0,
-                  GL_RGB, GL_UNSIGNED_BYTE, textureData)
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-
-    glCallList(cardList)
-
-
-class Pose(object):
-    pass
-
-class Game(object):
-    def __init__(self):
-        self.pose = Pose()
+        bus = self.pipeline.get_bus()
+        bus.add_watch(onMsg)
         
+        self.pipeline.set_state(gst.STATE_PLAYING)
 
-def newPositions():
-    colors = ['red', 'blue', 'green']
-    random.shuffle(colors)
-    orient = random.choice(['flat', 'tri', 'tall'])
-    if orient == 'flat':
-        return {colors[0] : (-1, .5, 0),
-                colors[1] : (0, .5, 0),
-                colors[2] : (1, .5, 0)}
-    elif orient == 'tall':
-        return {colors[0] : (0, .5, 0),
-                colors[1] : (0, 1.5, 0),
-                colors[2] : (0, 2.5, 0)}
-    elif orient == 'tri':
-        return {colors[0] : (0, .5, 0),
-                colors[1] : (.5, 1.5, 0),
-                colors[2] : (1, 0.5, 0)}
+        self.blobCanvas = goocanvas.Canvas()
+        self.blobCanvas.set_size_request(160, 120)
+        blobBox.pack_start(self.blobCanvas)
+        self.blobCanvas.show()
+        self.blobCanvasGroup = None
+
+        self.recentCenters = []
+
+    @logTime
+    def updateHuePic(self, pixbuf):
+        a = pixbuf.get_pixels_array().astype(numpy.uint16)
+        hsv = rgb_to_hsv(a[:,:,0], a[:,:,1], a[:,:,2])
+        hue = hsv[0]
+        mask = (
+            (hsv[2] > (255 * self.adjGet("minValue"))) *
+            (hsv[1] > self.adjGet("minSaturation"))).reshape(hue.shape[:2])
+        self.previewHue(hue, mask)
+        return hue, mask
+
+    @logTime
+    def previewHue(self, hue, mask):
+        hsv = numpy.array([hue,
+                           numpy.ones(hue.shape),
+                           mask.reshape(hue.shape + (1,)) * 255])
+        pic = hsv_to_rgb(hsv)
+        pic = numpy.rollaxis(pic, 0, 3).astype(numpy.uint8)
+        self.hueWidget.set_from_pixbuf(
+            gtk.gdk.pixbuf_new_from_array(pic, gtk.gdk.COLORSPACE_RGB, 8))
+
+    @logTime
+    def updateSatMatchPic(self, hue, mask):
+        out = numpy.zeros(hue.shape + (3,))
+        matches = {}
+        for color in self.blockSats.colors:
+            center = self.blockSats.getSat(color)
+            diff = abs(hue - center)
+            matches[color] = mask * (diff < self.adjGet("satDistance"))
+            out = numpy.choose(matches[color].reshape(hue.shape+(1,)),
+                               [out, self.blockSats.previewColor(color)])
+            
+        self.hueMatchVideo.set_from_pixbuf(
+            gtk.gdk.pixbuf_new_from_array((out * 255).astype(numpy.uint8),
+                                          gtk.gdk.COLORSPACE_RGB, 8))
+
+        return matches
+
+    @logTime
+    def updateBlobPic(self, matches):
+        centers = {}  # color: (x,y,coverage)
+        for color, hits in matches.items():
+            coords = numpy.transpose(numpy.nonzero(hits))
+            if coords.shape[0]:
+                center = numpy.average(coords, axis=0)
+                coverage = coords.shape[0] / (hits.shape[0] * hits.shape[1])
+                if coverage > self.adjGet("minCoverage"):
+                    centers[color] = (center[1], center[0], coverage)
+
+        self.previewCanvas(centers)
+        return centers
+    
+    @logTime
+    def previewCanvas(self, centers):
+        rf = int(self.adjGet("recentFrames"))
+        if rf == 0:
+            self.recentCenters = [centers]
+        else:
+            self.recentCenters = self.recentCenters[-rf:] + [centers]
+                
+        root = self.blobCanvas.get_root_item()
+        if self.blobCanvasGroup is not None:
+            self.blobCanvasGroup.remove()
+        self.blobCanvasGroup = goocanvas.Group(parent=root)
+        toDraw = {}
+        for color in centers:
+            x, y = numpy.average([c[color][:2] for c in self.recentCenters
+                                  if color in c], axis=0)
+
+            fill = "#%02X%02X%02X" % tuple(x*255 for x in
+                                           self.blockSats.previewColor(color))
+
+            toDraw[color] = (x, y, fill)
+
+        for color, (x, y, fill) in toDraw.items():
+            w = 10
+            r = goocanvas.Rect(parent=self.blobCanvasGroup,
+                               x=x-w/2, y=y-w/2, width=w, height=w,
+                               line_width=.7,
+                               fill_color=fill)
+
+        def line(p1, p2):
+            goocanvas.Polyline(parent=self.blobCanvasGroup,
+                               points=goocanvas.Points([p1, p2]),
+                               line_width=2,
+                               stroke_color='black',
+                               end_arrow=True)
+
+        if 'r' in toDraw and 'g' in toDraw:
+            line(toDraw['r'][:2], toDraw['g'][:2])
+        if 'g' in toDraw and 'b' in toDraw:
+            line(toDraw['g'][:2], toDraw['b'][:2])
+    
+    def __del__(self):
+        self.pipeline.set_state(gst.STATE_NULL)
 
 grabbed = [None]
-positions2 = newPositions()
 correctFrameStart = None
 
-def glSetup():
-    glClearColor(0.0, 0.0, 0.0, 0.0)
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    glLoadIdentity ()
-    GLU.gluLookAt (0.0, 0.7, 8.0,
-                   0.0, 0.5, 0.0,
-                   0.0, 1.0, 0.0)
 
-    glDisable(GL_TEXTURE_2D)
+#pygame.init()
+#beep = pygame.mixer.Sound("Question.wav")
 
-def groundPlane():
-    glPushMatrix()
-    glScalef(10, .01, 5)
-    cube(color=(.2, .2, 1))
-    glPopMatrix()
+wtree = gtk.Builder()
+wtree.add_from_file(sibpath(__file__, "ui.glade"))
+mainwin = wtree.get_object("MainWindow")
+mainwin.connect("destroy", gtk.main_quit)
+mainwin.show_all()
 
-def draw (grab):
-    global positions2, correctFrameStart
-    t1 = time.time()
+bs = BlockSats(wtree.get_object("blockSats"))
 
-    glSetup()
-    groundPlane()
+gameScene = GameScene()
+ga = GLArea(gameScene)
+oldGa = wtree.get_object("gameArea")
+ga.set_size_request(*oldGa.get_size_request())
+p = oldGa.get_parent()
+oldGa.destroy()
+p.add(ga)
+ga.show()
 
-    matching = False
-    glPushMatrix()
-    if 1:
-        glTranslatef(1, -.9, 3.2)
-        # flip to compensate for the camera facing the user
-        glScalef(-1, 1, 1)
-        
-        glDisable(GL_LIGHTING)
-        glEnable(GL_TEXTURE_2D)
+dev = glob.glob("/dev/video*")[0]
+vp = VideoPipeline(dev, wtree.get_object("rawVideo"),
+                   wtree.get_object("hueVideo"),
+                   wtree.get_object("hueMatchVideo"),
+                   wtree.get_object("blobBox"),
+                   adjGet=lambda n: wtree.get_object(n).get_value(),
+                   blockSats=bs,
+                   )
+vc = VideoControls(dev, # could get this from the pipeline i presume
+                   wtree.get_object("v4lControls"))
 
-        # without threads, i call grab() here
-        grab.grab()
+#gobject.timeout_add(1000 // framerate, self.updateLoop)
 
-        if grab.lastFrame:
-            imageCard(grab.lastFrame)
-            if grab.lastPosition:
-                for colorName, pos in grab.lastPosition.items():
-                    cube(color=(x / 255 for x in vision.colors[colorName]),
-                         center=(pos[0] * 2 - 1, pos[1] * 2 - 1, 1),
-                         side=.1, wire=True)
-                    
-                matching = vision.comparePose(grab.lastPosition, positions2)
-
-        glEnable(GL_LIGHTING)
-        glDisable(GL_TEXTURE_2D)
-    glPopMatrix()
-
-    for name, pos in positions2.items():
-        color = num.array(vision.colors[name]) / 255
-        if matching:
-            color = [.7 + .3 * x for x in color]
-        cube(color=color, center=pos)
-
-    if matching:
-        if correctFrameStart is None:
-            correctFrameStart = time.time()
-        if time.time() > correctFrameStart + .5:
-            positions2 = newPositions()
-            correctFrameStart = None
-            beep.play()
-    else:
-        correctFrameStart = None
-
-    
-    glFlush()
-    pygame.display.flip()
-    print "draw", time.time() - t1
-
-class GrabFrames(object):
-    def __init__(self):
-        self.camera = highgui.cvCreateCameraCapture(0)
-
-        self.lastFrame = None
-        self.lastPosition = None
-
-    def run(self):
-        while 1:
-            self.grab()
-
-    def grab(self):
-        t1 = time.time()
-
-        im = highgui.cvQueryFrame(self.camera)
-        newstr = im.imageData
-        self.lastFrame = MultiImage(newstr, 640, 480, flipColor=True)
-
-        #print "grab %.04f" % (time.time() - t1)
-
-        img = self.lastFrame.asSurface()
-        #surf.blit(img, (0, 0))
-
-        position = vision.findBlocks(self.lastFrame)#, surf)
-        self.lastPosition = position
-
-
-        #pygame.display.update()
-        
-
-surf = pygame.display.set_mode((640, 480),
-                               pygame.OPENGL |
-                               pygame.DOUBLEBUF)
-
-grab = GrabFrames()
-#thread.start_new_thread(grab.run, ())
-pygame.init()
-beep = pygame.mixer.Sound("Question.wav")
-
-openglSetup()
-
-def loop():
-    while 1:
-        try:
-            event=pygame.event.poll ()
-
-            if event.type is pygame.QUIT:
-              sys.exit(0)
-
-            draw(grab)
-
-            if event.type is pygame.KEYDOWN:
-              if event.key is pygame.K_ESCAPE:
-                sys.exit(0)
-              if event.key is pygame.K_1:
-                direction2=2
-        except KeyboardInterrupt:
-            break
-
-
-def run(func, profile=True, filename="/tmp/pro"):
-    if not profile:
-        func()
-        return
-    import profile as profileMod
-    import pstats
-    pr = profileMod.Profile()
-    pr.runcall(func)
-    p = pstats.Stats(pr)
-    p.sort_stats('time')
-    p.print_stats(60)
-
-run(loop, 0)
+gtk.main()

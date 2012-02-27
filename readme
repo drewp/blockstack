@@ -17,3 +17,20 @@ Question.wav is converted from this sound set:
     You may not use these sounds in any non GPL-ed or LGPL-ed software/OS for profit-making purposes. In other words, you may freely distribute it and use it for personal needs however you
     wish (even in Windows or MacOS), but any commercial endeavors are allowed only if they are associated solely with the GPL-ed and LGPL-ed software which also includes software that exi
     sts as both GPL/LGPL and commercial version, i.e. Trolltech's Qt.
+
+
+------------
+
+new opencv:
+
+OpenCV-2.3.1% cmake -D WITH_TBB=ON -D BUILD_NEW_PYTHON_SUPPORT=ON -D WITH_V4L=OFF -D INSTALL_C_EXAMPLES=ON -D INSTALL_PYTHON_EXAMPLES=ON -D BUILD_EXAMPLES=ON -D WITH_FFMPEG=OFF .   
+make
+
+
+------------
+docs:
+
+http://people.gnome.org/~gianmt/pygoocanvas/
+
+http://opencv.itseez.com/modules/refman.html
+
