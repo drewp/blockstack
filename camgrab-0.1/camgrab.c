@@ -23,7 +23,7 @@
 #include <Imlib2.h>
 #include <giblib.h>
 #include <sys/types.h>
-#include <linux/videodev.h>
+#include <libv4l1-videodev.h>
 
 #include "pwc-ioctl.h"
 

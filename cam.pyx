@@ -2,6 +2,9 @@
 #cdef extern int camgrab_main(int argc, char *argv[])
 #camgrab_main(0, NULL)
 
+cdef extern from "asm-generic/int-l64.h":
+    pass
+
 cdef extern from "Python.h":
     object PyBuffer_New(int size)
     int PyObject_AsWriteBuffer(object obj, void **buffer,
@@ -20,7 +23,7 @@ cdef extern from "sys/ioctl.h":
 #cdef extern from "X11/X.h":
 #    pass
 
-cdef extern from "linux/videodev.h":
+cdef extern from "libv4l1-videodev.h":
     cdef struct video_mmap:
         unsigned int frame  # /* Frame (0 - n) for double buffer */
         int height,width    #
