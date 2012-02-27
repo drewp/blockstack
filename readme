@@ -34,3 +34,14 @@ http://people.gnome.org/~gianmt/pygoocanvas/
 
 http://opencv.itseez.com/modules/refman.html
 
+http://docs.scipy.org/doc/numpy/reference/index.html
+
+http://gstreamer.freedesktop.org/data/doc/gstreamer/head/gstreamer/html/index.html
+http://developer.gnome.org/gst-plugins-libs/0.10/gst-plugins-good-plugins-gdkpixbufsink.html
+
+numpy hsv convertors:
+
+http://stackoverflow.com/questions/4890373/detecting-thresholds-in-hsv-color-space-from-rgb-using-python-pil
+
+http://fwarmerdam.blogspot.com/2010/01/hsvmergepy.html (bug in numpy.choose line)
+
