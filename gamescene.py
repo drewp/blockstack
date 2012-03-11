@@ -19,30 +19,6 @@ def cube(color=(1,1,1), center=(0,0,0), side=1, wire=False):
         GLUT.glutSolidCube(side)
     glPopMatrix()
 
-class Pose(object):
-    pass
-
-class Game(object):
-    def __init__(self):
-        self.pose = Pose()
-
-def newPositions():
-    colors = ['red', 'blue', 'green']
-    random.shuffle(colors)
-    orient = random.choice(['flat', 'tri', 'tall'])
-    if orient == 'flat':
-        return {colors[0] : (-1, .5, 0),
-                colors[1] : (0, .5, 0),
-                colors[2] : (1, .5, 0)}
-    elif orient == 'tall':
-        return {colors[0] : (0, .5, 0),
-                colors[1] : (0, 1.5, 0),
-                colors[2] : (0, 2.5, 0)}
-    elif orient == 'tri':
-        return {colors[0] : (0, .5, 0),
-                colors[1] : (.5, 1.5, 0),
-                colors[2] : (1, 0.5, 0)}
-
 def groundPlane():
     glPushMatrix()
     glScalef(10, .01, 5)
@@ -58,7 +34,7 @@ class GameScene(GLScene):
                          gtk.gdkgl.MODE_DEPTH |
                          gtk.gdkgl.MODE_DOUBLE)
 
-        self.positions2 = newPositions()
+        self.positions2 = {}
         
         GLUT.glutInit(sys.argv)
 
@@ -124,9 +100,9 @@ class GameScene(GLScene):
             glEnable(GL_TEXTURE_2D)
 
             # without threads, i call grab() here
-            grab.grab()
+            #grab.grab()
 
-            if grab.lastFrame:
+            if 0:#grab.lastFrame:
                 self.imageCard(grab.lastFrame)
                 if grab.lastPosition:
                     for colorName, pos in grab.lastPosition.items():
