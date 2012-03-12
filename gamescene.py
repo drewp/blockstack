@@ -1,3 +1,4 @@
+from __future__ import division
 from OpenGL.GL import *
 from OpenGL import GL, GLUT, GLU
 from gtk.gtkgl.apputils import GLScene, GLArea
@@ -20,7 +21,7 @@ def cube(color=(1,1,1), center=(0,0,0), side=1, wire=False):
 def groundPlane():
     glPushMatrix()
     glScalef(10, .01, 5)
-    cube(color=(.2, .2, 1))
+    cube(color=[.005, .005, .010])
     glPopMatrix()
 
 colors = {
@@ -30,27 +31,31 @@ colors = {
     }
 
 class GameScene(GLScene):
-    def init(self):
+    def __init__(self):
         GLScene.__init__(self,
                          gtk.gdkgl.MODE_RGB   |
                          gtk.gdkgl.MODE_DEPTH |
                          gtk.gdkgl.MODE_DOUBLE)
 
         self.pose = {}
+
+    def init(self):
+        
         GLUT.glutInit(sys.argv)
 
         glClearColor(0.0, 0.0, 0.0, 0.0)
-#        glShadeModel(GL_SMOOTH)
+        glShadeModel(GL_SMOOTH)
+
+        glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE)
         glEnable(GL_COLOR_MATERIAL)
 
-        glLightfv(GL_LIGHT0, GL_AMBIENT, [0.0, 0.0, 0.0, 1.0])
-        glLightfv(GL_LIGHT0, GL_DIFFUSE, [1.0, 1.0, 1.0, 1.0])
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, [.8, .8, .8, 1])
         glLightfv(GL_LIGHT0, GL_POSITION, [0.0, 3.0, 6.0, 0.0])
-        glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
+        #glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
 
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
-#        glEnable(GL_DEPTH_TEST)
+        glEnable(GL_DEPTH_TEST)
         glCullFace(GL_BACK)
         glEnable(GL_CULL_FACE)
 
@@ -80,9 +85,6 @@ class GameScene(GLScene):
         for name, pos in self.pose.items():
             color = num.array(colors[name]) / 255
             cube(color=color, center=pos)
-            cube(color=color, center=pos, wire=True)
-
-        glFlush()
 
         print "draw", time.time() - t1
 

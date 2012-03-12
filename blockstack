@@ -246,6 +246,7 @@ correctFrameStart = None
 
 class GameState(object):
     def start(self):
+        self._forceMatch = False
         
         self.currentPose = self.makePose()
         
@@ -253,12 +254,17 @@ class GameState(object):
 
     def drawPose(self, pose):
         self.scene.pose = pose
-        self.scene.display(0,0)
+        self.scene.invalidate()
 
     def onFrame(self, blobCenters):
-        if self.poseMatch(blobCenters, self.currentPose):
+        if self._forceMatch or self.poseMatch(blobCenters, self.currentPose):
+            self._forceMatch = False
             self.currentPose = self.makePose()
+            print "match! now", self.currentPose
             self.drawPose(self.currentPose)
+
+    def forceMatch(self):
+        self._forceMatch = True
 
     def makePose(self):
         colors = ['red', 'blue', 'green']
@@ -302,6 +308,11 @@ wtree.add_from_file(sibpath(__file__, "ui.glade"))
 mainwin = wtree.get_object("MainWindow")
 mainwin.connect("destroy", gtk.main_quit)
 mainwin.show_all()
+
+but1 = gtk.ToolButton(label="Force match")
+but1.connect("clicked", lambda tb: state.forceMatch())
+but1.show()
+wtree.get_object("toolbar1").insert(but1, -1)
 
 bs = BlockSats(wtree.get_object("blockSats"))
 
