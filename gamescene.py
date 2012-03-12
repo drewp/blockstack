@@ -1,9 +1,9 @@
 from __future__ import division
 from OpenGL.GL import *
 from OpenGL import GL, GLUT, GLU
-from gtk.gtkgl.apputils import GLScene, GLArea
+from gtk.gtkgl.apputils import GLScene
 import numpy as num
-import random, sys
+import sys
 
 import gtk
 import time
