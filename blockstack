@@ -76,7 +76,7 @@ class VideoControls(object):
 class BlockSats(object):
     """sliders for picking the saturation of each block color"""
     def __init__(self, parent):
-        self.colors = list('rgb')
+        self.colors = ['red', 'green', 'blue']
         self.adjs = {}
         for color in self.colors:
 
@@ -85,7 +85,7 @@ class BlockSats(object):
                 dict(minimum=0, maximum=1, step=.01,
                      # i could take a pic of all the blocks and
                      # cluster the hues to get these
-                     value=dict(r=0.01, g=.31, b=.7)[color]), None)
+                     value=dict(red=0.01, green=.31, blue=.7)[color]), None)
             self.adjs[color] = adj
             parent.pack_start(row)
         parent.show_all()
@@ -228,10 +228,10 @@ class VideoPipeline(object):
                                stroke_color='black',
                                end_arrow=True)
 
-        if 'r' in toDraw and 'g' in toDraw:
-            line(toDraw['r'][:2], toDraw['g'][:2])
-        if 'g' in toDraw and 'b' in toDraw:
-            line(toDraw['g'][:2], toDraw['b'][:2])
+        if 'red' in toDraw and 'green' in toDraw:
+            line(toDraw['red'][:2], toDraw['green'][:2])
+        if 'green' in toDraw and 'blue' in toDraw:
+            line(toDraw['green'][:2], toDraw['blue'][:2])
     
     def __del__(self):
         self.pipeline.set_state(gst.STATE_NULL)
@@ -252,7 +252,8 @@ class GameState(object):
         self.drawPose(self.currentPose)
 
     def drawPose(self, pose):
-        self.scene.display(400, 400)
+        self.scene.pose = pose
+        self.scene.display(0,0)
 
     def onFrame(self, blobCenters):
         if self.poseMatch(blobCenters, self.currentPose):
@@ -280,11 +281,11 @@ class GameState(object):
         try:
             angles = []
             for p in [positions1, positions2]:
-                v1 = num.array(p['green']) - p['red']
-                v2 = num.array(p['blue']) - p['green']
-                angles.append(num.array([fixNegative(atan2(v1[0], v1[1])),
-                                         fixNegative(atan2(v2[0], v2[1]))]))
-            #print angles[0], angles[1]
+                v1 = numpy.array(p['green']) - p['red']
+                v2 = numpy.array(p['blue']) - p['green']
+                angles.append(numpy.array([fixNegative(atan2(v1[0], v1[1])),
+                                           fixNegative(atan2(v2[0], v2[1]))]))
+            print angles[0], angles[1]
             err = sum(x * x for x in (angles[0] - angles[1]))
             return err < .5
         except KeyError:
