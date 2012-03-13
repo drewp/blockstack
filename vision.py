@@ -73,10 +73,12 @@ class VideoPipeline(object):
         self.blockSats = blockSats
         self.hueWidget = hueWidget
         self.hueMatchVideo = hueMatchVideo
-        pipe = (#"v4l2src device=%(videoDevice)s name=src ! "
-                "videotestsrc is-live=true name=src ! "
+
+        source = "v4l2src device=%(videoDevice)s name=src ! "
+        if 1:
+            source = "videotestsrc is-live=true name=src ! "
+        pipe = (source +
                 "videorate ! video/x-raw-rgb,framerate=15/1 ! "
-                
 #                "ffmpegcolorspace ! "
                 "videoscale ! video/x-raw-rgb,width=160,height=120 ! "
                 "gdkpixbufsink name=sink"
@@ -128,21 +130,24 @@ class VideoPipeline(object):
             gtk.gdk.pixbuf_new_from_array(pic, gtk.gdk.COLORSPACE_RGB, 8))
 
     def updateSatMatchPic(self, hue, mask):
-        out = numpy.zeros(hue.shape + (3,))
         matches = {}
         for color in self.blockSats.colors:
             center = self.blockSats.getSat(color)
             diff = abs(hue - center)
             matches[color] = mask * (diff < self.adjGet("satDistance"))
+        self.previewSatMatch(hue, matches)
+        return matches
+
+    def previewSatMatch(self, hue, matches):
+        out = numpy.zeros(hue.shape + (3,))
+        for color in self.blockSats.colors:
             out = numpy.choose(matches[color].reshape(hue.shape+(1,)),
                                [out, self.blockSats.previewColor(color)])
             
         self.hueMatchVideo.set_from_pixbuf(
             gtk.gdk.pixbuf_new_from_array((out * 255).astype(numpy.uint8),
                                           gtk.gdk.COLORSPACE_RGB, 8))
-
-        return matches
-
+        
     def updateBlobPic(self, matches):
         centers = {}  # color: (x,y,coverage)
         for color, hits in matches.items():

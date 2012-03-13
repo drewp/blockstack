@@ -10,12 +10,12 @@ import numpy
 from gtk.gtkgl.apputils import GLArea
 from twisted.python.util import sibpath
 
+sys.path.append("OpenCV-2.3.1/lib") # for cv2
+sys.path.append("../webcam2") # for v4laccess
+
 from gamescene import GameScene
 from play import GameState
 from vision import BlockSats, VideoPipeline, VideoControls
-
-sys.path.append("OpenCV-2.3.1/lib") # for cv2
-sys.path.append("../webcam2") # for v4laccess
 
 gobject.threads_init()
 
