@@ -1,7 +1,7 @@
 from __future__ import division
 import random
 import numpy
-from math import atan2
+from math import atan2, pi
 
 class GameState(object):
     def start(self):
@@ -48,16 +48,25 @@ class GameState(object):
             for p in [positions1, positions2]:
                 v1 = numpy.array(p['green']) - p['red']
                 v2 = numpy.array(p['blue']) - p['green']
-                angles.append(numpy.array([fixNegative(atan2(v1[0], v1[1])),
-                                           fixNegative(atan2(v2[0], v2[1]))]))
-            print angles[0], angles[1]
-            err = sum(x * x for x in (angles[0] - angles[1]))
-            return err < .5
+                v1 = v1[:2]
+                v2 = v2[:2]
+                offset = pi if p is positions1 else 0
+                angles.append(numpy.array([
+                    fixNegative(atan2(v1[0], v1[1]), offset),
+                    fixNegative(atan2(v2[0], v2[1]), offset)]))
+            err = sum(x * x for x in map(diffAngle, zip(angles[0], angles[1])))
+            print angles[0], angles[1], err
+            return err < .2
         except KeyError:
             return False
 
+def diffAngle((a1, a2)):
+    if a2 < a1:
+        a1,a2=a2,a1
+    return min(a2-a1, 2*pi-a2+a1)
 
-def fixNegative(ang):
+def fixNegative(ang, offset):
+    return (ang + pi + offset) % (2*pi)
     if ang < -3.0:
         return 3.1415
     return ang

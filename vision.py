@@ -158,26 +158,29 @@ class VideoPipeline(object):
                 if coverage > self.adjGet("minCoverage"):
                     centers[color] = (center[1], center[0], coverage)
 
-        self.previewCanvas(centers)
-        return centers
-    
-    def previewCanvas(self, centers):
         rf = int(self.adjGet("recentFrames"))
         if rf == 0:
             self.recentCenters = [centers]
         else:
             self.recentCenters = self.recentCenters[-rf:] + [centers]
+
+        avgCenters = {}
+        for color in centers:
+            x, y = numpy.average([c[color][:2] for c in self.recentCenters
+                                  if color in c], axis=0)
+            avgCenters[color] = (x,y)
+        self.previewCanvas(avgCenters)
+        return avgCenters
+    
+    def previewCanvas(self, centers):
                 
         root = self.blobCanvas.get_root_item()
         if self.blobCanvasGroup is not None:
             self.blobCanvasGroup.remove()
         self.blobCanvasGroup = goocanvas.Group(parent=root)
         toDraw = {}
-        for color in centers:
-            x, y = numpy.average([c[color][:2] for c in self.recentCenters
-                                  if color in c], axis=0)
-
-            fill = "#%02X%02X%02X" % tuple(x*255 for x in
+        for color, (x,y) in centers.items():
+            fill = "#%02X%02X%02X" % tuple(c*255 for c in
                                            self.blockSats.previewColor(color))
 
             toDraw[color] = (x, y, fill)
