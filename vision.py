@@ -47,7 +47,7 @@ class BlockSats(object):
                 dict(minimum=0, maximum=1, step=.01,
                      # i could take a pic of all the blocks and
                      # cluster the hues to get these
-                     value=dict(red=0.01, green=.31, blue=.7)[color]), None)
+                     value=dict(red=0.64, green=.34, blue=.43)[color]), None)
             self.adjs[color] = adj
             parent.pack_start(row)
         parent.show_all()
