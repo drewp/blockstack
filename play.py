@@ -10,13 +10,14 @@ class GameState(object):
             'entering' : 'match',
             'explode' : 'explode',
             }
-        self.playedSwoosh = False
+
+        self.gameState = "none"
+        self.timedGameStart = self.timedGameEnd = self.gameMatches = 0
         
     def start(self):
         self._forceMatch = False
         
-        self.currentPose = self.makePose()
-        self.startAnim("entering", .5)
+        self.enterNewPose()
         
         self.drawPose(self.currentPose)
 
@@ -30,15 +31,18 @@ class GameState(object):
         f = f * blend + 1.16 * f * (1 - blend)
         return f
 
+    def enterNewPose(self):
+        self.currentPose = self.makePose()
+        self.startAnim("entering", .5)
+        self.playedSwoosh = False
+
     def drawPose(self, pose):
         self.scene.pose = pose
 
         now = time.time()
         if now > self.animEnd:
             if self.state == 'explode':
-                self.currentPose = self.makePose()
-                self.startAnim("entering", .5)
-                self.playedSwoosh = False
+                self.enterNewPose()
             elif self.state == 'entering':
                 self.poseStart = now
                 self.state = "hold"
@@ -50,21 +54,48 @@ class GameState(object):
             self.animPos(now, 'entering', 1) > .6):
             self.playedSwoosh = True
             self.sound.playEffect('swoosh')
+
+        if self.gameState == "playing":
+            if now < self.timedGameEnd:
+                self.setGameDesc(
+                    "%s block %s, %.2f seconds left" % (
+                        self.gameMatches,
+                        "match" if self.gameMatches == 1 else "matches",
+                        self.timedGameEnd - now))
+            else:
+                self.sound.playEffect("gameOver")
+                self.setGameDesc("Game over: %d matches in %g seconds" %
+                                 (self.gameMatches,
+                                  self.timedGameEnd - self.timedGameStart))
+                self.gameState = "showScore"
                 
         self.scene.animSeed = self.animSeed
         self.scene.enter = self.animPos(now, 'entering', 1)
         self.scene.explode = self.animPos(now, 'explode', 0)
         self.scene.invalidate()
 
+
     def onFrame(self, blobCenters):
         if self.state == 'hold' and (
             self._forceMatch or 
             self.poseMatch(blobCenters, self.currentPose)):
             self._forceMatch = False
+            self.gameMatches += 1
             solveTime = time.time() - self.poseStart
-            print "solved in %s" % solveTime
+            self.setScore("Solved in %0.2f seconds" % solveTime)
             self.startAnim("explode", 1)
+            if self.gameState == 'showScore':
+                self.setGameDesc('')
+                self.gameState = 'none'
         self.drawPose(self.currentPose)
+
+    def startTimedGame(self):
+        self.timedGameStart = time.time()
+        self.timedGameEnd = self.timedGameStart + 8
+        self.gameMatches = 0
+        self.gameState = "playing"
+        self.sound.playEffect("gameStart")
+        self.enterNewPose()
 
     def forceMatch(self):
         self._forceMatch = True

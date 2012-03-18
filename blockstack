@@ -54,25 +54,31 @@ class Config(object):
         self.wtree, self.blockHues = wtree, blockHues
         
     def load(self):
-        config = json.load(open("config.json"))
-        self.adjKeys = config['adjustments'].keys()
+        self.config = json.load(open("config.json"))
+        self.adjKeys = self.config['adjustments'].keys()
         for k in self.adjKeys:
             adj = self.wtree.get_object(k)
-            adj.set_value(config['adjustments'][k])
+            adj.set_value(self.config['adjustments'][k])
             adj.connect("value-changed", self.save)
 
         for k, adj in self.blockHues.adjs.items():
-            adj.set_value(config['hues'][k])
+            adj.set_value(self.config['hues'][k])
             adj.connect("value-changed", self.save)
+
+        # write to camera
             
     def save(self, *args):
         adjs = dict((k, self.wtree.get_object(k).get_value())
                     for k in self.adjKeys)
         hues = dict((color, adj.get_value())
                     for (color, adj) in self.blockHues.adjs.items())
-        out = json.dumps({"adjustments":adjs, "hues":hues}, indent=2)
+
+        # read from camera (that got adjusted by v4lucp?), write to
+        # only the changed cam setting
+        
+        self.config.update({"adjustments":adjs, "hues":hues})
         f = open("config.json", "w")
-        f.write(out)
+        f.write(json.dumps(self.config, indent=2))
         f.close()
 
 def main():
@@ -86,6 +92,7 @@ def main():
     mainwin.show_all()
 
     addToolbar(wtree, "Force match", lambda tb: state.forceMatch())
+    addToolbar(wtree, "Start timed game", lambda tb: state.startTimedGame())
 
     bs = BlockHues(wtree.get_object("blockHues"))
 
@@ -95,6 +102,8 @@ def main():
 
     gameScene = GameScene()
     state.scene = gameScene
+    state.setScore = wtree.get_object("score").set_label
+    state.setGameDesc = wtree.get_object("gameDesc").set_label
     ga = GLArea(gameScene)
     swapInGlArea(wtree, "gameArea", ga)
 

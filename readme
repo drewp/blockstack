@@ -47,3 +47,15 @@ http://fwarmerdam.blogspot.com/2010/01/hsvmergepy.html (bug in numpy.choose line
 
 --------------
 dldn music from http://dig.ccmixter.org
+
+--------------
+
+showScore should hide the pieces for a while so you look at your score.
+video camera by-id settings control and config storage
+just launch v4l2ucp and save config when it closes?
+put live video on texture in opengl, make that double wide.
+support putting the wide opengl area full screen.
+lightning between the live+opengl matching blocks
+more auto calibration
+more game: react better to fast players, let them build chains of fast matches
+synth the entering sound according to the exact block layout
