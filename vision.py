@@ -67,23 +67,32 @@ class VideoPipeline(object):
     def __init__(self, videoDevice, rawVideoWidget, hueWidget, hueMatchVideo,
                  blobBox,
                  adjGet, blockSats,
-                 onFrame
+                 onFrame,
+                 cameraArea,
+                 pipelineSection,
                  ):
+
         self.adjGet = adjGet
         self.blockSats = blockSats
         self.hueWidget = hueWidget
         self.hueMatchVideo = hueMatchVideo
-
+        self.pipelineSection = pipelineSection
+        
         source = "v4l2src device=%(videoDevice)s name=src ! "
-        if 1:
+        if 0:
             source = "videotestsrc is-live=true name=src ! "
         pipe = (source +
-                "videorate ! video/x-raw-rgb,framerate=15/1 ! "
-#                "ffmpegcolorspace ! "
-                "videoscale ! video/x-raw-rgb,width=160,height=120 ! "
+                "videorate name=vidrate ! video/x-raw-rgb,framerate=15/1,width=640,height=480 ! "
+                "tee name=t ! "
+                "queue ! ffmpegcolorspace ! xvimagesink name=previewSink t. ! "
+                "queue ! videoscale ! video/x-raw-rgb,width=160,height=120 ! "
                 "gdkpixbufsink name=sink"
+
                 ) % vars()
         self.pipeline = gst.parse_launch(pipe)
+
+        previewSink = self.pipeline.get_by_name("previewSink")
+        previewSink.set_xwindow_id(cameraArea.window.xid)
 
         sink = self.pipeline.get_by_name("sink")
 
@@ -91,6 +100,8 @@ class VideoPipeline(object):
             if msg.src == sink and msg.structure.get_name() == 'pixbuf':
                 pb = msg.structure['pixbuf']
                 rawVideoWidget.set_from_pixbuf(pb)
+                self.previewEnabled = self.pipelineSection.get_property(
+                    "expanded")
                 hue, mask = self.updateHuePic(pb)
                 matches = self.updateSatMatchPic(hue, mask)
                 centers = self.updateBlobPic(matches)
@@ -117,7 +128,8 @@ class VideoPipeline(object):
         mask = (
             (hsv[:,:,2] > (255 * self.adjGet("minValue"))) *
             (hsv[:,:,1] > (255 * self.adjGet("minSaturation")))).reshape(hue255.shape[:2])
-        self.previewHue(hue255, mask)
+        if self.previewEnabled:
+            self.previewHue(hue255, mask)
         return hue255 / 255, mask
 
     def previewHue(self, hue255, mask):
@@ -135,7 +147,8 @@ class VideoPipeline(object):
             center = self.blockSats.getSat(color)
             diff = abs(hue - center)
             matches[color] = mask * (diff < self.adjGet("satDistance"))
-        self.previewSatMatch(hue, matches)
+        if self.previewEnabled:
+            self.previewSatMatch(hue, matches)
         return matches
 
     def previewSatMatch(self, hue, matches):
@@ -169,7 +182,8 @@ class VideoPipeline(object):
             x, y = numpy.average([c[color][:2] for c in self.recentCenters
                                   if color in c], axis=0)
             avgCenters[color] = (x,y)
-        self.previewCanvas(avgCenters)
+        if self.previewEnabled:
+            self.previewCanvas(avgCenters)
         return avgCenters
     
     def previewCanvas(self, centers):

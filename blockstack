@@ -4,9 +4,7 @@
 """
 from __future__ import division
 import sys, time, glob, logging
-import gobject
-import gtk
-import numpy
+import gobject, gtk, numpy
 from gtk.gtkgl.apputils import GLArea
 from twisted.python.util import sibpath
 
@@ -16,6 +14,7 @@ sys.path.append("../webcam2") # for v4laccess
 from gamescene import GameScene
 from play import GameState
 from vision import BlockSats, VideoPipeline, VideoControls
+from sound import Sound
 
 gobject.threads_init()
 
@@ -53,7 +52,8 @@ def swapInGlArea(wtree, widgetName, ga):
 #pygame.init()
 #beep = pygame.mixer.Sound("Question.wav")
 
-state = GameState()
+sound = Sound()
+state = GameState(sound)
 
 wtree = gtk.Builder()
 wtree.add_from_file(sibpath(__file__, "ui.glade"))
@@ -78,10 +78,16 @@ vp = VideoPipeline(dev, wtree.get_object("rawVideo"),
                    adjGet=lambda n: wtree.get_object(n).get_value(),
                    blockSats=bs,
                    onFrame=state.onFrame,
+                   cameraArea=wtree.get_object("cameraArea"),
+                   pipelineSection=wtree.get_object("pipelineSection"),
                    )
 vc = VideoControls(dev, # could get this from the pipeline i presume
                    wtree.get_object("v4lControls"))
 
 #gobject.timeout_add(1000 // framerate, self.updateLoop)
 state.start()
+
+
+gobject.idle_add(sound.idle)
+
 gtk.main()
