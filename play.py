@@ -1,34 +1,83 @@
 from __future__ import division
-import random
+import random, time
 import numpy
 from math import atan2, pi
 
 class GameState(object):
     def __init__(self, sound):
         self.sound = sound
+        self.animSound = {
+            'entering' : 'match',
+            'explode' : 'explode',
+            }
+        self.playedSwoosh = False
+        
     def start(self):
         self._forceMatch = False
         
         self.currentPose = self.makePose()
+        self.startAnim("entering", .5)
         
         self.drawPose(self.currentPose)
 
+    def animPos(self, now, inState, default):
+        """if we're in this state, return the anim fraction, else default"""
+        if self.state != inState:
+            return default
+        f = (now - self.animStart) / (self.animEnd - self.animStart)
+        f = min(1, max(0, f))
+        blend = f**8
+        f = f * blend + 1.16 * f * (1 - blend)
+        return f
+
     def drawPose(self, pose):
         self.scene.pose = pose
+
+        now = time.time()
+        if now > self.animEnd:
+            if self.state == 'explode':
+                self.currentPose = self.makePose()
+                self.startAnim("entering", .5)
+                self.playedSwoosh = False
+            elif self.state == 'entering':
+                self.poseStart = now
+                self.state = "hold"
+            else:
+                self.state = "hold"
+
+        if (self.state == 'entering' and
+            not self.playedSwoosh and
+            self.animPos(now, 'entering', 1) > .6):
+            self.playedSwoosh = True
+            self.sound.playEffect('swoosh')
+                
+        self.scene.animSeed = self.animSeed
+        self.scene.enter = self.animPos(now, 'entering', 1)
+        self.scene.explode = self.animPos(now, 'explode', 0)
         self.scene.invalidate()
 
     def onFrame(self, blobCenters):
-        if self._forceMatch or self.poseMatch(blobCenters, self.currentPose):
+        if self.state == 'hold' and (
+            self._forceMatch or 
+            self.poseMatch(blobCenters, self.currentPose)):
             self._forceMatch = False
-            self.currentPose = self.makePose()
-            print "match! now", self.currentPose
-            self.sound.playMatch()
-            print "draw some glow or connector lines between robot and human pics to show a match"
-            self.drawPose(self.currentPose)
+            solveTime = time.time() - self.poseStart
+            print "solved in %s" % solveTime
+            self.startAnim("explode", 1)
+        self.drawPose(self.currentPose)
 
     def forceMatch(self):
         self._forceMatch = True
 
+    def startAnim(self, state, duration):
+        self.state = state
+        if state in self.animSound:
+            self.sound.playEffect(self.animSound[state])
+
+        self.animSeed = random.random()
+        self.animStart = time.time()
+        self.animEnd = self.animStart + duration
+       
     def makePose(self):
         colors = ['red', 'blue', 'green']
         random.shuffle(colors)

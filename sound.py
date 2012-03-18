@@ -1,10 +1,13 @@
 import pyglet
+from pyglet.media import load
 
 class Sound(object):
-    def __init__(self):
-
-        self.intro = pyglet.media.load("music/dldn-intro.wav", streaming=True)
-        self.mid = pyglet.media.load("music/dldn-mid.wav", streaming=True)
+    def __init__(self, enabled=True):
+        if not enabled:
+            self.idle = lambda *args: None
+            return
+        self.intro = load("music/dldn-intro.wav", streaming=True)
+        self.mid = load("music/dldn-mid.wav", streaming=True)
         self.bgMusic = pyglet.media.Player()
         self.bgMusic.queue(self.intro)
         self.bgMusic.queue(self.mid)
@@ -12,10 +15,14 @@ class Sound(object):
         
         self.bgMusic.play()
 
-        self.match = pyglet.media.load("match.wav", streaming=False)
+        self.effects = {
+            'match' : load("sound/match.wav", streaming=False),
+            'explode' : load("sound/Missile_Impact-2012236287-cut.wav", streaming=False),
+            'swoosh' : load("sound/Swoosh-1-SoundBible.com-231145780.wav", streaming=False),
+            }
         
-    def playMatch(self):
-        self.match.play()
+    def playEffect(self, name):
+        self.effects[name].play()
 
     def idle(self):
         # this may be adding 20% cpu load

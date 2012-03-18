@@ -3,15 +3,16 @@ from OpenGL.GL import *
 from OpenGL import GL, GLUT, GLU
 from gtk.gtkgl.apputils import GLScene
 import numpy as num
-import sys
+import sys, random
 
 import gtk
 import time
 
-def cube(color=(1,1,1), center=(0,0,0), side=1, wire=False):
+def cube(color=(1,1,1), center=(0,0,0), rot=(0, 0,0,0), side=1, wire=False):
     glColor3f(*color)
     glPushMatrix()
     glTranslatef(*center)
+    glRotatef(*rot)
     if wire:
         GLUT.glutWireCube(side)
     else:
@@ -38,6 +39,7 @@ class GameScene(GLScene):
                          gtk.gdkgl.MODE_DOUBLE)
 
         self.pose = {}
+        self.enter = 1 # 0..1 flies in the cubes
 
     def init(self):
         
@@ -51,13 +53,25 @@ class GameScene(GLScene):
 
         glLightfv(GL_LIGHT0, GL_DIFFUSE, [.8, .8, .8, 1])
         glLightfv(GL_LIGHT0, GL_POSITION, [0.0, 3.0, 6.0, 0.0])
-        #glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
-
-        glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
+
+        glLightfv(GL_LIGHT1, GL_DIFFUSE, [.6, .4, .4, 1])
+        glLightfv(GL_LIGHT1, GL_POSITION, [4.0, 3.0, 6.0, 0.0])
+        glEnable(GL_LIGHT1)
+
+        #glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
+        glEnable(GL_LIGHTING)
         glEnable(GL_DEPTH_TEST)
         glCullFace(GL_BACK)
         glEnable(GL_CULL_FACE)
+
+        
+        glFogfv(GL_FOG_COLOR, (0,0,0,1))
+        glFogf(GL_FOG_DENSITY, 0.10)
+        glFogf(GL_FOG_START, 5.0)
+        glFogf(GL_FOG_END, 20.0)
+        glEnable(GL_FOG)
+        
 
         self.cardList = self.makeCard()
 
@@ -69,8 +83,6 @@ class GameScene(GLScene):
         glMatrixMode (GL_MODELVIEW)
 
     def display(self, width, height):
-        t1 = time.time()
-
         glClearColor(0.0, 0.0, 0.0, 0.0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glLoadIdentity ()
@@ -81,12 +93,18 @@ class GameScene(GLScene):
         glDisable(GL_TEXTURE_2D)
 
         groundPlane()
-
+        R = random.Random(self.animSeed)
         for name, pos in self.pose.items():
+            pos = num.array(pos) + [0,0,-20*(1-self.enter)]
+            rot = (0,0,0,0)
+            if self.explode:
+                noise= num.array([R.uniform(0,1), R.uniform(0,1), R.uniform(0,1)])
+                jitter = (noise - [.5, 0, .5]) * [2,.1,5]
+                explodeDir = (pos + jitter)
+                pos = pos + explodeDir * 10 * self.explode
+                rot = (200 * self.explode, 1,1,1)
             color = num.array(colors[name]) / 255
-            cube(color=color, center=pos)
-
-        print "draw", time.time() - t1
+            cube(color=color, center=pos, rot=rot)
 
     def makeCard(self):
         n = glGenLists(1)

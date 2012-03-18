@@ -35,8 +35,8 @@ class VideoControls(object):
 
         widgetParent.show_all()
 
-class BlockSats(object):
-    """sliders for picking the saturation of each block color"""
+class BlockHues(object):
+    """sliders for picking the center hue of each block color"""
     def __init__(self, parent):
         self.colors = ['red', 'green', 'blue']
         self.adjs = {}
@@ -47,16 +47,16 @@ class BlockSats(object):
                 dict(minimum=0, maximum=1, step=.01,
                      # i could take a pic of all the blocks and
                      # cluster the hues to get these
-                     value=dict(red=0.64, green=.34, blue=.43)[color]), None)
+                     value=0), None)
             self.adjs[color] = adj
             parent.pack_start(row)
         parent.show_all()
 
-    def getSat(self, color):
+    def getHue(self, color):
         return self.adjs[color].get_value()
     
     def previewColor(self, color):
-        return colorsys.hsv_to_rgb(self.getSat(color), 1, 1)
+        return colorsys.hsv_to_rgb(self.getHue(color), 1, 1)
 
 class VideoPipeline(object):
     """
@@ -66,14 +66,14 @@ class VideoPipeline(object):
     """
     def __init__(self, videoDevice, rawVideoWidget, hueWidget, hueMatchVideo,
                  blobBox,
-                 adjGet, blockSats,
+                 adjGet, blockHues,
                  onFrame,
                  cameraArea,
                  pipelineSection,
                  ):
 
         self.adjGet = adjGet
-        self.blockSats = blockSats
+        self.blockHues = blockHues
         self.hueWidget = hueWidget
         self.hueMatchVideo = hueMatchVideo
         self.pipelineSection = pipelineSection
@@ -103,7 +103,7 @@ class VideoPipeline(object):
                 self.previewEnabled = self.pipelineSection.get_property(
                     "expanded")
                 hue, mask = self.updateHuePic(pb)
-                matches = self.updateSatMatchPic(hue, mask)
+                matches = self.updateHueMatchPic(hue, mask)
                 centers = self.updateBlobPic(matches)
                 onFrame(centers)
             return True
@@ -141,21 +141,21 @@ class VideoPipeline(object):
         self.hueWidget.set_from_pixbuf(
             gtk.gdk.pixbuf_new_from_array(pic, gtk.gdk.COLORSPACE_RGB, 8))
 
-    def updateSatMatchPic(self, hue, mask):
+    def updateHueMatchPic(self, hue, mask):
         matches = {}
-        for color in self.blockSats.colors:
-            center = self.blockSats.getSat(color)
+        for color in self.blockHues.colors:
+            center = self.blockHues.getHue(color)
             diff = abs(hue - center)
-            matches[color] = mask * (diff < self.adjGet("satDistance"))
+            matches[color] = mask * (diff < self.adjGet("hueDistance"))
         if self.previewEnabled:
-            self.previewSatMatch(hue, matches)
+            self.previewHueMatch(hue, matches)
         return matches
 
-    def previewSatMatch(self, hue, matches):
+    def previewHueMatch(self, hue, matches):
         out = numpy.zeros(hue.shape + (3,))
-        for color in self.blockSats.colors:
+        for color in self.blockHues.colors:
             out = numpy.choose(matches[color].reshape(hue.shape+(1,)),
-                               [out, self.blockSats.previewColor(color)])
+                               [out, self.blockHues.previewColor(color)])
             
         self.hueMatchVideo.set_from_pixbuf(
             gtk.gdk.pixbuf_new_from_array((out * 255).astype(numpy.uint8),
@@ -195,7 +195,7 @@ class VideoPipeline(object):
         toDraw = {}
         for color, (x,y) in centers.items():
             fill = "#%02X%02X%02X" % tuple(c*255 for c in
-                                           self.blockSats.previewColor(color))
+                                           self.blockHues.previewColor(color))
 
             toDraw[color] = (x, y, fill)
 
