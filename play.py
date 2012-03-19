@@ -124,7 +124,7 @@ class GameState(object):
         self.animEnd = self.animStart + duration
        
     def makePose(self):
-        colors = ['red', 'blue', 'green']
+        colors = ['yellow', 'blue', 'green']
         random.shuffle(colors)
         orient = random.choice(['flat', 'tri', 'tall'])
         if orient == 'flat':
@@ -141,22 +141,31 @@ class GameState(object):
                     colors[2] : (1, 0.5, 0)}
 
     def poseMatch(self, positions1, positions2):
+        pairs = colorPairs(positions2.keys())
         try:
             angles = []
             for p in [positions1, positions2]:
-                v1 = numpy.array(p['green']) - p['red']
-                v2 = numpy.array(p['blue']) - p['green']
-                v1 = v1[:2]
-                v2 = v2[:2]
-                offset = pi if p is positions1 else 0
-                flip = -1 if p is positions1 else 1
-                angles.append([positiveAngle(flip*atan2(v1[0], v1[1]), offset),
-                               positiveAngle(flip*atan2(v2[0], v2[1]), offset)])
+                row = []
+                for c1, c2 in pairs:
+                    v = numpy.array(p[c1]) - p[c2]
+                    v = v[:2]
+                    offset = pi if p is positions1 else 0
+                    flip = -1 if p is positions1 else 1
+                    row.append(positiveAngle(flip*atan2(v[0], v[1]), offset))
+                angles.append(row)
             err = sum(x * x for x in map(diffAngle, zip(angles[0], angles[1])))
             dispatcher.send("err", txt="error=%.3f" % err)
             return err < .2
         except KeyError:
             return False
+
+def colorPairs(colors):
+    colors = sorted(colors)
+    pairs = []
+    for i in range(len(colors)):
+        for j in range(i+1, len(colors)):
+            pairs.append((colors[i], colors[j]))
+    return pairs
 
 def diffAngle((a1, a2)):
     if a2 < a1:

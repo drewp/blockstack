@@ -1,7 +1,8 @@
 from __future__ import division
-import gtk, gst, goocanvas, numpy, cv2, colorsys, time
+import gtk, gst, goocanvas, numpy, cv2,  time
 from timing import logTime
 from louie import dispatcher
+from play import colorPairs
 
 def labeledScale(name, config):
     row = gtk.VBox()
@@ -20,7 +21,7 @@ def labeledScale(name, config):
 class BlockHues(object):
     """sliders for picking the center hue of each block color"""
     def __init__(self, parent):
-        self.colors = ['red', 'green', 'blue']
+        self.colors = ['yellow', 'green', 'blue', 'purple']
         self.adjs = {}
         for color in self.colors:
 
@@ -38,7 +39,12 @@ class BlockHues(object):
         return self.adjs[color].get_value()
     
     def previewColor(self, color):
-        return colorsys.hsv_to_rgb(self.getHue(color), 1, 1)
+        dot = numpy.array([[[self.getHue(color) * 255, 255, 255]]],
+                          dtype=numpy.uint8)
+        # opencv's hues are a little fishy- h=180/255 is the same red
+        # as h=0/255, but at least I'm consistent with the image xform
+        conv = cv2.cvtColor(dot, cv2.COLOR_HSV2RGB)
+        return conv[0][0] / 255.
 
 class VideoPipeline(object):
     """
@@ -204,10 +210,10 @@ class VideoPipeline(object):
                                stroke_color='black',
                                end_arrow=True)
 
-        if 'red' in toDraw and 'green' in toDraw:
-            line(toDraw['red'][:2], toDraw['green'][:2])
-        if 'green' in toDraw and 'blue' in toDraw:
-            line(toDraw['green'][:2], toDraw['blue'][:2])
+        # this will be lines like what's used for comparisons, but
+        # they might not be exactly the same ones
+        for c1, c2 in colorPairs(toDraw.keys()):
+            line(toDraw[c1][:2], toDraw[c2][:2])
     
     def __del__(self):
         self.pipeline.set_state(gst.STATE_NULL)

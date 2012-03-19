@@ -69,7 +69,7 @@ class Config(object):
             adj.connect("value-changed", self.save)
 
         for k, adj in self.blockHues.adjs.items():
-            adj.set_value(self.config['hues'][k])
+            adj.set_value(self.config.get('hues', {}).get(k, 0))
             adj.connect("value-changed", self.save)
 
         if self.config.get('cameras', {}).get(self.cameraDevice):
@@ -141,8 +141,8 @@ def main():
 
     bs = BlockHues(wtree.get_object("blockHues"))
 
-
     gameScene = GameScene()
+    gameScene.previewColor = bs.previewColor
     state.scene = gameScene
     state.setScore = wtree.get_object("score").set_label
     state.setGameDesc = wtree.get_object("gameDesc").set_label

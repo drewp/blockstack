@@ -25,12 +25,6 @@ def groundPlane():
     cube(color=[.005, .005, .010])
     glPopMatrix()
 
-colors = {
-    'red' : [255,0,0],
-    'green' : [0,255,0],
-    'blue' : [0,0,255],
-    }
-
 class GameScene(GLScene):
     def __init__(self):
         GLScene.__init__(self,
@@ -124,7 +118,7 @@ class GameScene(GLScene):
                 explodeDir = (pos + jitter)
                 pos = pos + explodeDir * 10 * self.explode
                 rot = (200 * self.explode, 1,1,1)
-            color = num.array(colors[name]) / 255
+            color = num.array(self.previewColor(name))
             cube(color=color, center=pos, rot=rot)
 
         if self.currentMessage:

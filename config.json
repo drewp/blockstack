@@ -1,21 +1,22 @@
 {
   "hues": {
-    "blue": 0.51, 
-    "green": 0.21, 
-    "red": 0.11
+    "blue": 0.52, 
+    "purple": 0.65, 
+    "green": 0.2, 
+    "yellow": 0.12
   }, 
   "adjustments": {
-    "minSaturation": 0.32, 
-    "minValue": 0.26, 
-    "recentFrames": 20.0, 
-    "hueDistance": 0.05, 
+    "minSaturation": 0.24, 
+    "minValue": 0.23, 
+    "recentFrames": 10.0, 
+    "hueDistance": 0.04, 
     "minCoverage": 0.01
   }, 
   "cameras": {
     "/dev/v4l/by-id/usb-Vimicro_Corp._Sirius_USB2.0_Camera-video-index0": {
-      "White Balance Temperature": {
-        "ctl": 9963802, 
-        "val": 6500
+      "Exposure, Auto": {
+        "ctl": 10094849, 
+        "val": 1
       }, 
       "Saturation": {
         "ctl": 9963778, 
@@ -37,29 +38,29 @@
         "ctl": 9963803, 
         "val": 0
       }, 
-      "Power Line Frequency": {
-        "ctl": 9963800, 
-        "val": 2
+      "Backlight Compensation": {
+        "ctl": 9963804, 
+        "val": 0
       }, 
-      "Exposure, Auto": {
-        "ctl": 10094849, 
-        "val": 1
+      "White Balance Temperature": {
+        "ctl": 9963802, 
+        "val": 6500
       }, 
       "Gain": {
         "ctl": 9963795, 
         "val": 48
       }, 
-      "Gamma": {
-        "ctl": 9963792, 
-        "val": 200
-      }, 
-      "Backlight Compensation": {
-        "ctl": 9963804, 
-        "val": 0
-      }, 
       "Contrast": {
         "ctl": 9963777, 
         "val": 7
+      }, 
+      "Power Line Frequency": {
+        "ctl": 9963800, 
+        "val": 2
+      }, 
+      "Gamma": {
+        "ctl": 9963792, 
+        "val": 200
       }
     }
   }
