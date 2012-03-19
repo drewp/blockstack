@@ -104,7 +104,7 @@ class GameState(object):
 
     def startTimedGame(self):
         self.timedGameStart = time.time() + 5
-        self.timedGameEnd = self.timedGameStart + 10
+        self.timedGameEnd = self.timedGameStart + 60
         self.gameMatches = 0
         self.gameState = "ready"
         self.scene.currentMessage = "Ready"
@@ -124,21 +124,23 @@ class GameState(object):
         self.animEnd = self.animStart + duration
        
     def makePose(self):
-        colors = ['yellow', 'blue', 'green']
+        colors = ['yellow', 'blue', 'green', 'purple']
         random.shuffle(colors)
-        orient = random.choice(['flat', 'tri', 'tall'])
-        if orient == 'flat':
-            return {colors[0] : (-1, .5, 0),
-                    colors[1] : (0, .5, 0),
-                    colors[2] : (1, .5, 0)}
-        elif orient == 'tall':
-            return {colors[0] : (0, .5, 0),
-                    colors[1] : (0, 1.5, 0),
-                    colors[2] : (0, 2.5, 0)}
-        elif orient == 'tri':
-            return {colors[0] : (0, .5, 0),
-                    colors[1] : (.5, 1.5, 0),
-                    colors[2] : (1, 0.5, 0)}
+        colors = colors[:random.randrange(2, len(colors)+1)]
+
+        out = {}
+        y = .5
+        prevWidth = 999
+        while colors:
+            maxWidth = min(prevWidth, len(colors))
+            row = [colors.pop() for i in range(random.randrange(1, maxWidth+1))]
+            x = - (len(row)-1) / 2
+            for color in row:
+                out[color] = (x, y, 0)
+                x += 1
+            y += 1
+            prevWidth = len(row)
+        return out
 
     def poseMatch(self, positions1, positions2):
         pairs = colorPairs(positions2.keys())

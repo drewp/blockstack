@@ -1,15 +1,15 @@
 {
   "hues": {
-    "blue": 0.52, 
-    "purple": 0.65, 
+    "blue": 0.5, 
+    "purple": 0.0, 
     "green": 0.2, 
     "yellow": 0.12
   }, 
   "adjustments": {
-    "minSaturation": 0.24, 
+    "minSaturation": 0.09, 
     "minValue": 0.23, 
-    "recentFrames": 10.0, 
-    "hueDistance": 0.04, 
+    "recentFrames": 5.0, 
+    "hueDistance": 0.042, 
     "minCoverage": 0.01
   }, 
   "cameras": {
