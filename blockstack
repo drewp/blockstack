@@ -35,11 +35,16 @@ def logTime(func):
         return ret
     return inner
 
+def debug():
+    from IPython.frontend.terminal.interactiveshell import TerminalInteractiveShell
+    shell = TerminalInteractiveShell(user_ns=vars())
+    shell.mainloop()
+
 def addToolbar(wtree, label, cb):
     but1 = gtk.ToolButton(label=label)
+    wtree.get_object("toolbar1").insert(but1, -1)
     but1.connect("clicked", cb)
     but1.show()
-    wtree.get_object("toolbar1").insert(but1, -1)
 
 def swapInGlArea(wtree, widgetName, ga):
     oldGa = wtree.get_object(widgetName)
@@ -50,8 +55,9 @@ def swapInGlArea(wtree, widgetName, ga):
     ga.show()
 
 class Config(object):
-    def __init__(self, wtree, blockHues):
+    def __init__(self, wtree, blockHues, videoControls):
         self.wtree, self.blockHues = wtree, blockHues
+        self.videoControls = videoControls
         
     def load(self):
         self.config = json.load(open("config.json"))
@@ -66,6 +72,13 @@ class Config(object):
             adj.connect("value-changed", self.save)
 
         # write to camera
+        vals = self.config.get('cameras', {}).get(
+            self.videoControls.devicePath, {})
+        for n, adj in self.videoControls.adjs.items():
+            if n in vals:
+                adj.set_value(vals[n])
+            adj.connect("value-changed", self.save)
+        self.save() # to get the camera controls written
             
     def save(self, *args):
         adjs = dict((k, self.wtree.get_object(k).get_value())
@@ -77,6 +90,10 @@ class Config(object):
         # only the changed cam setting
         
         self.config.update({"adjustments":adjs, "hues":hues})
+        self.config.setdefault('cameras', {}).update({
+            self.videoControls.devicePath :
+            dict((n, adj.get_value()) for (n, adj) in
+                 self.videoControls.adjs.items())})
         f = open("config.json", "w")
         f.write(json.dumps(self.config, indent=2))
         f.close()
@@ -96,9 +113,6 @@ def main():
 
     bs = BlockHues(wtree.get_object("blockHues"))
 
-    config = Config(wtree, bs)
-    config.load()
-
 
     gameScene = GameScene()
     state.scene = gameScene
@@ -107,7 +121,7 @@ def main():
     ga = GLArea(gameScene)
     swapInGlArea(wtree, "gameArea", ga)
 
-    dev = glob.glob("/dev/video*")[0]
+    dev = glob.glob("/dev/v4l/by-id/*")[0]
     vp = VideoPipeline(dev, wtree.get_object("rawVideo"),
                        wtree.get_object("hueVideo"),
                        wtree.get_object("hueMatchVideo"),
@@ -120,6 +134,9 @@ def main():
                        )
     vc = VideoControls(dev, # could get this from the pipeline i presume
                        wtree.get_object("v4lControls"))
+
+    config = Config(wtree, bs, vc)
+    config.load()
 
     state.start()
 

@@ -1,5 +1,5 @@
 from __future__ import division
-import gtk, gst, goocanvas, numpy, cv2, colorsys
+import gtk, gst, goocanvas, numpy, cv2, colorsys, traceback
 import v4laccess
 
 def labeledScale(name, config, cb):
@@ -12,8 +12,10 @@ def labeledScale(name, config, cb):
 
     if cb is not None:
         def valueChanged(adj):
-            print "changed", adj
-            cb(adj.get_value())
+            try:
+                cb(adj.get_value())
+            except:
+                traceback.print_exc()
         adj.connect("value-changed", valueChanged)
     scl = gtk.HScale(adj)
     scl.set_digits(2)
@@ -24,13 +26,18 @@ def labeledScale(name, config, cb):
 class VideoControls(object):
     """make gtk controls for adjusting the v4l parameters of a camera"""
     def __init__(self, devicePath, widgetParent):
+        self.devicePath = devicePath
         self.dev = v4laccess.Device(devicePath)
+        self.adjs = {} # contolname: adj
         for name, config in sorted(self.dev.getControls().items()):
             if 'menu' in config:
+                print "skippng setup for menu", name
                 continue # not supported, probably just powerline frequency
 
-            row, adj = labeledScale(name, config,
-                                    lambda v: self.dev.setControl(name, v))
+            def setCtl(v, name=name):
+                print "setting", name, v
+                self.dev.setControl(name, v)
+            row, self.adjs[name] = labeledScale(name, config, setCtl)
             widgetParent.pack_start(row)
 
         widgetParent.show_all()
