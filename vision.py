@@ -1,8 +1,9 @@
 from __future__ import division
-import gtk, gst, goocanvas, numpy, cv2, colorsys, traceback
-import v4laccess
+import gtk, gst, goocanvas, numpy, cv2, colorsys, time
+from timing import logTime
+from louie import dispatcher
 
-def labeledScale(name, config, cb):
+def labeledScale(name, config):
     row = gtk.VBox()
     row.pack_start(gtk.Label(name))
     adj = gtk.Adjustment(lower=config['minimum'],
@@ -10,37 +11,11 @@ def labeledScale(name, config, cb):
                          step_incr=config['step'],
                          value=config['value'])
 
-    if cb is not None:
-        def valueChanged(adj):
-            try:
-                cb(adj.get_value())
-            except:
-                traceback.print_exc()
-        adj.connect("value-changed", valueChanged)
     scl = gtk.HScale(adj)
     scl.set_digits(2)
     scl.set_property('value-pos', gtk.POS_LEFT)
     row.pack_start(scl)
     return row, adj
-
-class VideoControls(object):
-    """make gtk controls for adjusting the v4l parameters of a camera"""
-    def __init__(self, devicePath, widgetParent):
-        self.devicePath = devicePath
-        self.dev = v4laccess.Device(devicePath)
-        self.adjs = {} # contolname: adj
-        for name, config in sorted(self.dev.getControls().items()):
-            if 'menu' in config:
-                print "skippng setup for menu", name
-                continue # not supported, probably just powerline frequency
-
-            def setCtl(v, name=name):
-                print "setting", name, v
-                self.dev.setControl(name, v)
-            row, self.adjs[name] = labeledScale(name, config, setCtl)
-            widgetParent.pack_start(row)
-
-        widgetParent.show_all()
 
 class BlockHues(object):
     """sliders for picking the center hue of each block color"""
@@ -54,7 +29,7 @@ class BlockHues(object):
                 dict(minimum=0, maximum=1, step=.01,
                      # i could take a pic of all the blocks and
                      # cluster the hues to get these
-                     value=0), None)
+                     value=0))
             self.adjs[color] = adj
             parent.pack_start(row)
         parent.show_all()
@@ -78,24 +53,25 @@ class VideoPipeline(object):
                  cameraArea,
                  pipelineSection,
                  ):
-
+        self.videoDevice = videoDevice
         self.adjGet = adjGet
         self.blockHues = blockHues
         self.hueWidget = hueWidget
         self.hueMatchVideo = hueMatchVideo
         self.pipelineSection = pipelineSection
         
-        source = "v4l2src device=%(videoDevice)s name=src ! "
+        source = "v4l2src device=%(videoDevice)s name=src ! " % vars()
         if 0:
             source = "videotestsrc is-live=true name=src ! "
         pipe = (source +
-                "videorate name=vidrate ! video/x-raw-rgb,framerate=15/1,width=640,height=480 ! "
+                "videorate name=vidrate ! "
+                "video/x-raw-rgb,framerate=30/1,width=640,height=480 ! "
+                "queue ! videoflip method=4 ! "
                 "tee name=t ! "
                 "queue ! ffmpegcolorspace ! xvimagesink name=previewSink t. ! "
                 "queue ! videoscale ! video/x-raw-rgb,width=160,height=120 ! "
                 "gdkpixbufsink name=sink"
-
-                ) % vars()
+                )
         self.pipeline = gst.parse_launch(pipe)
 
         previewSink = self.pipeline.get_by_name("previewSink")
@@ -103,12 +79,20 @@ class VideoPipeline(object):
 
         sink = self.pipeline.get_by_name("sink")
 
+        pixbufTimes = []
         def onMsg(bus, msg):
             if msg.src == sink and msg.structure.get_name() == 'pixbuf':
+
+                now = time.time()
+                pixbufTimes[:] = [t for t in pixbufTimes if t > now - 5] + [now]
+                dispatcher.send("videoStats",
+                                txt="fps = %.1f" % (len(pixbufTimes) / 5.))
+
                 pb = msg.structure['pixbuf']
-                rawVideoWidget.set_from_pixbuf(pb)
                 self.previewEnabled = self.pipelineSection.get_property(
                     "expanded")
+                if self.previewEnabled:
+                    rawVideoWidget.set_from_pixbuf(pb)
                 hue, mask = self.updateHuePic(pb)
                 matches = self.updateHueMatchPic(hue, mask)
                 centers = self.updateBlobPic(matches)

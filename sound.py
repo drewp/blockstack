@@ -2,10 +2,11 @@ import pyglet
 from pyglet.media import load
 
 class Sound(object):
-    def __init__(self, enabled=True):
+    def __init__(self, enabled=True, idle_add=None):
         if not enabled:
-            self.idle = lambda *args: None
+            self.playEffect = lambda *args: None
             return
+        idle_add(self.idle)
         print "loading music"
         self.intro = load("music/dldn-intro.wav", streaming=False)
         self.mid = load("music/dldn-mid.wav", streaming=False)

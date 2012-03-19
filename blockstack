@@ -3,17 +3,18 @@
 
 """
 from __future__ import division
-import sys, time, glob, logging, json
+import sys, time, glob, logging, json, tempfile, subprocess, os
 import gobject, gtk, numpy
 from gtk.gtkgl.apputils import GLArea
 from twisted.python.util import sibpath
+from louie import dispatcher
 
 sys.path.append("OpenCV-2.3.1/lib") # for cv2
 sys.path.append("../webcam2") # for v4laccess
 
 from gamescene import GameScene
 from play import GameState
-from vision import BlockHues, VideoPipeline, VideoControls
+from vision import BlockHues, VideoPipeline
 from sound import Sound
 
 gobject.threads_init()
@@ -55,9 +56,9 @@ def swapInGlArea(wtree, widgetName, ga):
     ga.show()
 
 class Config(object):
-    def __init__(self, wtree, blockHues, videoControls):
+    def __init__(self, wtree, blockHues, cameraDevice):
         self.wtree, self.blockHues = wtree, blockHues
-        self.videoControls = videoControls
+        self.cameraDevice = cameraDevice
         
     def load(self):
         self.config = json.load(open("config.json"))
@@ -71,14 +72,28 @@ class Config(object):
             adj.set_value(self.config['hues'][k])
             adj.connect("value-changed", self.save)
 
-        # write to camera
-        vals = self.config.get('cameras', {}).get(
-            self.videoControls.devicePath, {})
-        for n, adj in self.videoControls.adjs.items():
-            if n in vals:
-                adj.set_value(vals[n])
-            adj.connect("value-changed", self.save)
-        self.save() # to get the camera controls written
+        if self.config.get('cameras', {}).get(self.cameraDevice):
+            conf = self.config['cameras'][self.cameraDevice]
+            conf["White Balance Temperature, Auto"]['val'] = 1
+            wbt = conf.pop("White Balance Temperature")
+            print "white balance.."
+            self.v4lSet(conf)
+            time.sleep(.7)
+            conf["White Balance Temperature, Auto"]['val'] = 0
+            self.v4lSet(conf)
+            print "locked"
+            # it looks like if you put this in while turning off auto,
+            # there's an error, like it set WBT before sending the
+            # setting for Auto
+            conf["White Balance Temperature"] = wbt
+            self.v4lSet(conf)
+            
+            print "camera set"
+
+    def saveCameraConfig(self, *args):
+        self.config.setdefault('cameras', {}).update({
+            self.cameraDevice : self.v4lGet()})
+        self.save()
             
     def save(self, *args):
         adjs = dict((k, self.wtree.get_object(k).get_value())
@@ -86,20 +101,33 @@ class Config(object):
         hues = dict((color, adj.get_value())
                     for (color, adj) in self.blockHues.adjs.items())
 
-        # read from camera (that got adjusted by v4lucp?), write to
-        # only the changed cam setting
-        
         self.config.update({"adjustments":adjs, "hues":hues})
-        self.config.setdefault('cameras', {}).update({
-            self.videoControls.devicePath :
-            dict((n, adj.get_value()) for (n, adj) in
-                 self.videoControls.adjs.items())})
+
         f = open("config.json", "w")
         f.write(json.dumps(self.config, indent=2))
         f.close()
 
+    def v4lGet(self):
+        tf = tempfile.NamedTemporaryFile()
+        subprocess.check_call(["v4l2ctrl", "-d", self.cameraDevice,
+                               "-s", tf.name])
+        ctls = {}
+        for line in tf.readlines():
+            ctl, name, val = map(str.strip, line.split(':'))
+            ctls[name] = {"ctl":int(ctl), "val":int(val)}
+        return ctls
+
+    def v4lSet(self, conf):
+        tf = tempfile.NamedTemporaryFile()
+        for name, d in conf.items():
+            tf.write("%s:%31s:%s\n" % (d['ctl'], name, d['val']))
+        tf.flush()
+        subprocess.check_call(["v4l2ctrl", "-d", self.cameraDevice,
+                               "-l", tf.name])
+        
+
 def main():
-    sound = Sound(enabled=True)
+    sound = Sound(enabled=False, idle_add=gobject.idle_add)
     state = GameState(sound)
 
     wtree = gtk.Builder()
@@ -131,16 +159,24 @@ def main():
                        onFrame=state.onFrame,
                        cameraArea=wtree.get_object("cameraArea"),
                        pipelineSection=wtree.get_object("pipelineSection"),
-                       )
-    vc = VideoControls(dev, # could get this from the pipeline i presume
-                       wtree.get_object("v4lControls"))
 
-    config = Config(wtree, bs, vc)
+                       )
+
+    config = Config(wtree, bs, dev)
     config.load()
+    wtree.get_object("runV4l2ucp").connect(
+        "clicked", lambda *args: os.system("v4l2ucp %s &" % dev))
+    wtree.get_object("saveCameraConfig").connect(
+        "clicked", config.saveCameraConfig)
+
+    for label in ['err', 'videoStats']:
+        widget = wtree.get_object(label)
+        def recv(txt, widget=widget):
+            widget.set_label(txt)
+        dispatcher.connect(signal=label, receiver=recv, weak=False)
 
     state.start()
-
-    gobject.idle_add(sound.idle)
+    state.sound = Sound(enabled=True, idle_add=gobject.idle_add)
     gtk.main()
 
 main()

@@ -2,6 +2,8 @@ from __future__ import division
 import random, time
 import numpy
 from math import atan2, pi
+from timing import logTime
+from louie import dispatcher
 
 class GameState(object):
     def __init__(self, sound):
@@ -21,20 +23,24 @@ class GameState(object):
         
         self.drawPose(self.currentPose)
 
-    def animPos(self, now, inState, default):
+    def animPos(self, now, inState, default, bounce=False):
         """if we're in this state, return the anim fraction, else default"""
         if self.state != inState:
             return default
         f = (now - self.animStart) / (self.animEnd - self.animStart)
         f = min(1, max(0, f))
-        blend = f**8
-        f = f * blend + 1.16 * f * (1 - blend)
+        if bounce:
+            f = f**3
         return f
 
     def enterNewPose(self):
-        self.currentPose = self.makePose()
-        self.startAnim("entering", .5)
-        self.playedSwoosh = False
+        if not hasattr(self, 'currentPose'):
+            self.currentPose = {}
+        prev = self.currentPose
+        while self.currentPose == prev:
+            self.currentPose = self.makePose()
+        self.startAnim("entering", .3)
+        self.sound.playEffect('swoosh')
 
     def drawPose(self, pose):
         self.scene.pose = pose
@@ -49,12 +55,12 @@ class GameState(object):
             else:
                 self.state = "hold"
 
-        if (self.state == 'entering' and
-            not self.playedSwoosh and
-            self.animPos(now, 'entering', 1) > .6):
-            self.playedSwoosh = True
-            self.sound.playEffect('swoosh')
-
+        if self.gameState == "ready":
+            if now > self.timedGameStart:
+                self.scene.currentMessage = None
+                self.gameState = "playing"
+                self.enterNewPose()
+                
         if self.gameState == "playing":
             if now < self.timedGameEnd:
                 self.setGameDesc(
@@ -67,10 +73,19 @@ class GameState(object):
                 self.setGameDesc("Game over: %d matches in %g seconds" %
                                  (self.gameMatches,
                                   self.timedGameEnd - self.timedGameStart))
+                self.currentMessage = "Game over: %s matches" % self.gameMatches
+                self.currentPose = {}
                 self.gameState = "showScore"
+                self.gameNext = now + 3
+        elif self.gameState == "showScore":
+            if now  > self.gameNext:
+                self.currentMessage = None
+                self.gameState = "none"
+                self.setGameDesc("")
+                self.enterNewPose()
                 
         self.scene.animSeed = self.animSeed
-        self.scene.enter = self.animPos(now, 'entering', 1)
+        self.scene.enter = self.animPos(now, 'entering', 1, bounce=True)
         self.scene.explode = self.animPos(now, 'explode', 0)
         self.scene.invalidate()
 
@@ -83,19 +98,18 @@ class GameState(object):
             self.gameMatches += 1
             solveTime = time.time() - self.poseStart
             self.setScore("Solved in %0.2f seconds" % solveTime)
-            self.startAnim("explode", 1)
-            if self.gameState == 'showScore':
-                self.setGameDesc('')
-                self.gameState = 'none'
+            self.startAnim("explode", .7)
+
         self.drawPose(self.currentPose)
 
     def startTimedGame(self):
-        self.timedGameStart = time.time()
-        self.timedGameEnd = self.timedGameStart + 8
+        self.timedGameStart = time.time() + 5
+        self.timedGameEnd = self.timedGameStart + 10
         self.gameMatches = 0
-        self.gameState = "playing"
+        self.gameState = "ready"
+        self.scene.currentMessage = "Ready"
         self.sound.playEffect("gameStart")
-        self.enterNewPose()
+        self.currentPose = {}
 
     def forceMatch(self):
         self._forceMatch = True
@@ -135,10 +149,11 @@ class GameState(object):
                 v1 = v1[:2]
                 v2 = v2[:2]
                 offset = pi if p is positions1 else 0
-                angles.append([positiveAngle(atan2(v1[0], v1[1]), offset),
-                               positiveAngle(atan2(v2[0], v2[1]), offset)])
+                flip = -1 if p is positions1 else 1
+                angles.append([positiveAngle(flip*atan2(v1[0], v1[1]), offset),
+                               positiveAngle(flip*atan2(v2[0], v2[1]), offset)])
             err = sum(x * x for x in map(diffAngle, zip(angles[0], angles[1])))
-            print angles[0], angles[1], err
+            dispatcher.send("err", txt="error=%.3f" % err)
             return err < .2
         except KeyError:
             return False

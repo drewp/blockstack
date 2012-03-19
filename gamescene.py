@@ -3,7 +3,7 @@ from OpenGL.GL import *
 from OpenGL import GL, GLUT, GLU
 from gtk.gtkgl.apputils import GLScene
 import numpy as num
-import sys, random
+import sys, random, pyglet
 
 import gtk
 import time
@@ -40,6 +40,7 @@ class GameScene(GLScene):
 
         self.pose = {}
         self.enter = 1 # 0..1 flies in the cubes
+        self.currentMessage = None
 
     def init(self):
         
@@ -65,37 +66,57 @@ class GameScene(GLScene):
         glCullFace(GL_BACK)
         glEnable(GL_CULL_FACE)
 
-        
         glFogfv(GL_FOG_COLOR, (0,0,0,1))
         glFogf(GL_FOG_DENSITY, 0.10)
         glFogf(GL_FOG_START, 5.0)
         glFogf(GL_FOG_END, 20.0)
+        glHint(GL_FOG_HINT, GL_NICEST);
         glEnable(GL_FOG)
         
-
         self.cardList = self.makeCard()
 
     def reshape(self, width, height):
         glViewport (0, 0, width, height)
+
+    def setup3d(self):
         glMatrixMode (GL_PROJECTION)
         glLoadIdentity()
         glFrustum (-1.0, 1.0, -1.0, 1.0, 1.5, 20.0)
         glMatrixMode (GL_MODELVIEW)
+        glLoadIdentity ()
+
+        GLU.gluLookAt (0.0, 2.0, 5.0,
+                       0.0, 0.5, 0.0,
+                       0.0, 1.0, 0.0)
+
+    def display2d(self):
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        GLU.gluOrtho2D(0, 640, 0, 480)
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+        
+        glDisable(GL_LIGHTING)
+        try:
+            glTranslatef(640/2,480/2,0)
+            t = pyglet.text.Label(font_name='Arial', font_size=60,
+                                  anchor_x="center", anchor_y="center",
+                                  text=self.currentMessage)
+            t.draw()
+        finally:
+            glEnable(GL_LIGHTING)
 
     def display(self, width, height):
         glClearColor(0.0, 0.0, 0.0, 0.0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        glLoadIdentity ()
-        GLU.gluLookAt (0.0, 2.0, 5.0,
-                       0.0, 0.5, 0.0,
-                       0.0, 1.0, 0.0)
+        self.setup3d()
 
         glDisable(GL_TEXTURE_2D)
 
         groundPlane()
         R = random.Random(self.animSeed)
         for name, pos in self.pose.items():
-            pos = num.array(pos) + [0,0,-20*(1-self.enter)]
+            pos = num.array(pos) + [0,6*(1-self.enter),0]
             rot = (0,0,0,0)
             if self.explode:
                 noise= num.array([R.uniform(0,1), R.uniform(0,1), R.uniform(0,1)])
@@ -105,6 +126,9 @@ class GameScene(GLScene):
                 rot = (200 * self.explode, 1,1,1)
             color = num.array(colors[name]) / 255
             cube(color=color, center=pos, rot=rot)
+
+        if self.currentMessage:
+            self.display2d()
 
     def makeCard(self):
         n = glGenLists(1)
