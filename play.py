@@ -6,8 +6,9 @@ from timing import logTime
 from louie import dispatcher
 
 class GameState(object):
-    def __init__(self, sound):
+    def __init__(self, sound, colors):
         self.sound = sound
+        self.colors = colors
         self.animSound = {
             'entering' : 'match',
             'explode' : 'explode',
@@ -124,7 +125,7 @@ class GameState(object):
         self.animEnd = self.animStart + duration
        
     def makePose(self):
-        colors = ['yellow', 'blue', 'green', 'purple']
+        colors = self.colors[:]
         random.shuffle(colors)
         colors = colors[:random.randrange(2, len(colors)+1)]
 

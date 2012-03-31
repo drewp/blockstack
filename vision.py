@@ -20,10 +20,10 @@ def labeledScale(name, config):
 
 class BlockHues(object):
     """sliders for picking the center hue of each block color"""
-    def __init__(self, parent):
-        self.colors = ['yellow', 'green', 'blue', 'purple']
+    def __init__(self, parent, colors):
         self.adjs = {}
-        for color in self.colors:
+        self.colors = colors
+        for color in colors:
 
             row, adj = labeledScale(
                 color,
