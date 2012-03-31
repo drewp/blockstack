@@ -10,7 +10,7 @@ class Sound(object):
         print "loading music"
         self.intro = load("music/dldn-intro.wav", streaming=False)
         self.mid = load("music/dldn-mid.wav", streaming=False)
-        self.crash = load("music/dldn-crash.wav", streaming=False)
+        self.crash = load("music/dldn-crash.ogg", streaming=False)
         print "done"
         self.bgMusic = pyglet.media.Player()
         self.bgMusic.volume = .6
@@ -21,9 +21,9 @@ class Sound(object):
         self.bgMusic.play()
 
         self.effects = {
-            'match' : load("sound/match.wav", streaming=False),
-            'explode' : load("sound/Missile_Impact-2012236287-cut.wav", streaming=False),
-            'swoosh' : load("sound/Swoosh-1-SoundBible.com-231145780.wav", streaming=False),
+            'match' : load("sound/match.ogg", streaming=False),
+            'explode' : load("sound/Missile_Impact-2012236287-cut.ogg", streaming=False),
+            'swoosh' : load("sound/Swoosh-1-SoundBible.com-231145780.ogg", streaming=False),
             }
 
 
