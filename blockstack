@@ -72,7 +72,7 @@ def main():
     mainwin.show_all()
 
     addToolbar(wtree, "Force match", lambda tb: state.forceMatch())
-    addToolbar(wtree, "Start timed game", lambda tb: state.startTimedGame())
+    addToolbar(wtree, "Start timed game", lambda tb: state.timedGameMake())
 
     bs = BlockHues(wtree.get_object("blockHues"), colors)
 

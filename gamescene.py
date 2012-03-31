@@ -34,7 +34,7 @@ class GameScene(GLScene):
 
         self.pose = {}
         self.enter = 1 # 0..1 flies in the cubes
-        self.currentMessage = None
+        self.currentMessage = self.cornerMessage = None
 
     def init(self):
         
@@ -84,6 +84,8 @@ class GameScene(GLScene):
                        0.0, 1.0, 0.0)
 
     def display2d(self):
+        if not self.currentMessage and not self.cornerMessage:
+            return
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
         GLU.gluOrtho2D(0, 640, 0, 480)
@@ -92,11 +94,28 @@ class GameScene(GLScene):
         
         glDisable(GL_LIGHTING)
         try:
-            glTranslatef(640/2,480/2,0)
-            t = pyglet.text.Label(font_name='Arial', font_size=60,
-                                  anchor_x="center", anchor_y="center",
-                                  text=self.currentMessage)
-            t.draw()
+            if self.currentMessage:
+                glPushMatrix()
+                try:
+                    glTranslatef(640/2, 480/2, 0)
+                    t = pyglet.text.Label(font_name='Arial', font_size=40,
+                                          anchor_x="center", anchor_y="center",
+                                          text=self.currentMessage)
+                    t.draw()
+                finally:
+                    glPopMatrix()
+
+            if self.cornerMessage:
+                glPushMatrix()
+                try:
+                    glTranslatef(640-30, 480-30, 0)
+                    t = pyglet.text.Label(font_name='Arial', font_size=20,
+                                          anchor_x="right", anchor_y="bottom",
+                                          text=self.cornerMessage)
+                    t.draw()
+                finally:
+                    glPopMatrix()
+            
         finally:
             glEnable(GL_LIGHTING)
 
@@ -121,8 +140,7 @@ class GameScene(GLScene):
             color = num.array(self.previewColor(name))
             cube(color=color, center=pos, rot=rot)
 
-        if self.currentMessage:
-            self.display2d()
+        self.display2d()
 
     def makeCard(self):
         n = glGenLists(1)

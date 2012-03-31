@@ -15,14 +15,13 @@ class GameState(object):
             }
 
         self.gameState = "none"
-        self.timedGameStart = self.timedGameEnd = self.gameMatches = 0
+        self.timedGameRange = (0,0)
+        self.gameMatches = 0
         
     def start(self):
-        self._forceMatch = False
-        
+        """once at process startup"""
+        self._forceMatch = False        
         self.enterNewPose()
-        
-        self.drawPose(self.currentPose)
 
     def animPos(self, now, inState, default, bounce=False):
         """if we're in this state, return the anim fraction, else default"""
@@ -39,59 +38,15 @@ class GameState(object):
             self.currentPose = {}
         prev = self.currentPose
         while self.currentPose == prev:
+            # also i want to skip ones that are a close enough match
+            # to the current blocks
             self.currentPose = self.makePose()
         self.startAnim("entering", .3)
         self.sound.playEffect('swoosh')
 
-    def drawPose(self, pose):
-        self.scene.pose = pose
-
-        now = time.time()
-        if now > self.animEnd:
-            if self.state == 'explode':
-                self.enterNewPose()
-            elif self.state == 'entering':
-                self.poseStart = now
-                self.state = "hold"
-            else:
-                self.state = "hold"
-
-        if self.gameState == "ready":
-            if now > self.timedGameStart:
-                self.scene.currentMessage = None
-                self.gameState = "playing"
-                self.enterNewPose()
-                
-        if self.gameState == "playing":
-            if now < self.timedGameEnd:
-                self.setGameDesc(
-                    "%s block %s, %.2f seconds left" % (
-                        self.gameMatches,
-                        "match" if self.gameMatches == 1 else "matches",
-                        self.timedGameEnd - now))
-            else:
-                self.sound.playEffect("gameOver")
-                self.setGameDesc("Game over: %d matches in %g seconds" %
-                                 (self.gameMatches,
-                                  self.timedGameEnd - self.timedGameStart))
-                self.currentMessage = "Game over: %s matches" % self.gameMatches
-                self.currentPose = {}
-                self.gameState = "showScore"
-                self.gameNext = now + 3
-        elif self.gameState == "showScore":
-            if now  > self.gameNext:
-                self.currentMessage = None
-                self.gameState = "none"
-                self.setGameDesc("")
-                self.enterNewPose()
-                
-        self.scene.animSeed = self.animSeed
-        self.scene.enter = self.animPos(now, 'entering', 1, bounce=True)
-        self.scene.explode = self.animPos(now, 'explode', 0)
-        self.scene.invalidate()
-
-
     def onFrame(self, blobCenters):
+        now = time.time()
+        
         if self.state == 'hold' and (
             self._forceMatch or 
             self.poseMatch(blobCenters, self.currentPose)):
@@ -101,16 +56,70 @@ class GameState(object):
             self.setScore("Solved in %0.2f seconds" % solveTime)
             self.startAnim("explode", .7)
 
-        self.drawPose(self.currentPose)
+        if now > self.animEnd:
+            if self.state == 'explode':
+                if self.gameState not in ['ready', 'showScore']:
+                    self.enterNewPose()
+            elif self.state == 'entering':
+                self.poseStart = now
+                self.state = "hold"
+            else:
+                self.state = "hold"
 
-    def startTimedGame(self):
-        self.timedGameStart = time.time() + 5
-        self.timedGameEnd = self.timedGameStart + 60
+        if self.gameState == "ready":
+            if now > self.timedGameRange[0]:
+                self.timedGameStart()
+        elif self.gameState == "playing":
+            if now < self.timedGameRange[1]:
+                match = "%s %s" % (self.gameMatches,
+                                   "match" if self.gameMatches == 1 else "matches")
+                self.setGameDesc(
+                    "%s, %.2f seconds left" % (
+                        match,
+                        self.timedGameRange[1] - now))
+                self.scene.cornerMessage = match
+            else:
+                self.timedGameEnd(now)
+        elif self.gameState == "showScore":
+            if now > self.gameNext:
+                self.scene.currentMessage = None
+                self.gameState = "none"
+                self.setGameDesc("")
+                self.enterNewPose()
+        else:
+            self.scene.cornerMessage = None
+                
+        self.scene.pose = self.currentPose
+        self.scene.animSeed = self.animSeed
+        self.scene.enter = self.animPos(now, 'entering', 1, bounce=True)
+        self.scene.explode = self.animPos(now, 'explode', 0)
+        self.scene.invalidate() # could run this less, but i'm expecting more anim
+
+    def timedGameMake(self):
+        t = time.time() + 3
+        self.timedGameRange = (t, t + 30)
         self.gameMatches = 0
         self.gameState = "ready"
         self.scene.currentMessage = "Ready"
         self.sound.playEffect("gameStart")
         self.currentPose = {}
+        self.scene.pose = self.currentPose
+
+    def timedGameStart(self):
+        self.scene.currentMessage = None
+        self.gameState = "playing"
+        self.enterNewPose()
+
+    def timedGameEnd(self, now):
+        self.sound.playEffect("gameOver")
+        self.scene.currentMessage = "Game over: %s %s" % (
+            self.gameMatches, "match" if self.gameMatches == 1 else "matches")
+        self.setGameDesc(self.scene.currentMessage +
+                         " in %g seconds" % 
+                         (self.timedGameRange[1] - self.timedGameRange[0]))
+        self.currentPose = {}
+        self.gameState = "showScore"
+        self.gameNext = now + 6
 
     def forceMatch(self):
         self._forceMatch = True
@@ -144,6 +153,8 @@ class GameState(object):
         return out
 
     def poseMatch(self, positions1, positions2):
+        if not positions1 or not positions2:
+            return False
         pairs = colorPairs(positions2.keys())
         try:
             angles = []
