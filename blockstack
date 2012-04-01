@@ -92,9 +92,7 @@ def main():
                        adjGet=lambda n: wtree.get_object(n).get_value(),
                        blockHues=bs,
                        onFrame=state.onFrame,
-                       cameraArea=wtree.get_object("cameraArea"),
                        pipelineSection=wtree.get_object("pipelineSection"),
-
                        )
 
     config = Config(wtree, bs, dev)

@@ -44,7 +44,7 @@ class GameState(object):
         self.startAnim("entering", .3)
         self.sound.playEffect('swoosh')
 
-    def onFrame(self, blobCenters):
+    def onFrame(self, blobCenters, videoPixbuf):
         now = time.time()
         
         if self.state == 'hold' and (
@@ -88,7 +88,8 @@ class GameState(object):
                 self.enterNewPose()
         else:
             self.scene.cornerMessage = None
-                
+
+        self.scene.videoFrame = videoPixbuf
         self.scene.pose = self.currentPose
         self.scene.animSeed = self.animSeed
         self.scene.enter = self.animPos(now, 'entering', 1, bounce=True)

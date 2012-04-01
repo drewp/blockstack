@@ -35,6 +35,7 @@ class GameScene(GLScene):
         self.pose = {}
         self.enter = 1 # 0..1 flies in the cubes
         self.currentMessage = self.cornerMessage = None
+        self.videoFrame = None
 
     def init(self):
         
@@ -72,15 +73,15 @@ class GameScene(GLScene):
     def reshape(self, width, height):
         glViewport (0, 0, width, height)
 
-    def setup3d(self):
+    def setup3d(self, width, height):
         glMatrixMode (GL_PROJECTION)
         glLoadIdentity()
         glFrustum (-1.0, 1.0, -1.0, 1.0, 1.5, 20.0)
         glMatrixMode (GL_MODELVIEW)
         glLoadIdentity ()
 
-        GLU.gluLookAt (0.0, 2.0, 5.0,
-                       0.0, 0.5, 0.0,
+        GLU.gluLookAt (1.5, 1.5, 5.0,
+                       1.5, 0.8, 0.0,
                        0.0, 1.0, 0.0)
 
     def display2d(self):
@@ -93,6 +94,9 @@ class GameScene(GLScene):
         glLoadIdentity()
         
         glDisable(GL_LIGHTING)
+        glBindTexture(GL_TEXTURE_2D, 0)
+        glDisable(GL_TEXTURE_2D)
+        glColor3f(1,1,1)
         try:
             if self.currentMessage:
                 glPushMatrix()
@@ -122,7 +126,7 @@ class GameScene(GLScene):
     def display(self, width, height):
         glClearColor(0.0, 0.0, 0.0, 0.0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        self.setup3d()
+        self.setup3d(width, height)
 
         glDisable(GL_TEXTURE_2D)
 
@@ -139,6 +143,14 @@ class GameScene(GLScene):
                 rot = (200 * self.explode, 1,1,1)
             color = num.array(self.previewColor(name))
             cube(color=color, center=pos, rot=rot)
+
+        glPushMatrix()
+        try:
+            glTranslatef(3, 1.2, 0)
+            glScalef(1.2, 1.2, 1)
+            self.imageCard(self.videoFrame)
+        finally:
+            glPopMatrix()
 
         self.display2d()
 
@@ -157,16 +169,32 @@ class GameScene(GLScene):
 
     def imageCard(self, multiImage):
         """card facing +Z from -1<x<1 -1<y<1"""
-        textureData = multiImage.asImage()
-        textureData = textureData.resize((256, 256)).tostring()
 
-        glBindTexture(GL_TEXTURE_2D, 0)
-        glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB,
-                      256, #multiImage.size()[0],
-                      256, #multiImage.size()[1],
-                      0,
-                      GL_RGB, GL_UNSIGNED_BYTE, textureData)
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        glPushAttrib(GL_ALL_ATTRIB_BITS)
+        try:
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+            glEnable(GL_TEXTURE_2D)
 
-        glCallList(self.cardList)
+            pixels = (multiImage
+                      .scale_simple(512, 512, gtk.gdk.INTERP_BILINEAR)
+                      .get_pixels_array())
+
+            if not hasattr(self, "texId"):
+                self.texId = glGenTextures(1)
+                glBindTexture(GL_TEXTURE_2D, self.texId)
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
+
+            # faster way would be to make an empty power-of-2 texture,
+            # then use subimage2d to write the video-aspect rect into
+            # it. Pick the video part with the tx coords.
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
+                         pixels.shape[0], pixels.shape[1], 0,
+                         GL_RGB, GL_UNSIGNED_BYTE, pixels)                
+
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+            glDisable(GL_LIGHTING)
+
+            glCallList(self.cardList)
+        finally:
+            glPopAttrib()

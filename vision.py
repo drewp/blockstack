@@ -56,7 +56,6 @@ class VideoPipeline(object):
                  blobBox,
                  adjGet, blockHues,
                  onFrame,
-                 cameraArea,
                  pipelineSection,
                  ):
         self.videoDevice = videoDevice
@@ -72,23 +71,31 @@ class VideoPipeline(object):
         pipe = (source +
                 "videorate name=vidrate ! "
                 "video/x-raw-rgb,framerate=30/1,width=640,height=480 ! "
-                "queue ! videoflip method=4 ! "
-                "tee name=t ! "
-                "queue ! ffmpegcolorspace ! xvimagesink name=previewSink t. ! "
-                "queue ! videoscale ! video/x-raw-rgb,width=160,height=120 ! "
-                "gdkpixbufsink name=sink"
-                )
+                "queue ! videoflip method=4 ! ")
+        if 0:
+            # draw to X window
+            pipe += (
+                    "tee name=t ! "
+                    "queue ! ffmpegcolorspace ! xvimagesink name=previewSink t. ! "
+                    "queue ! videoscale ! video/x-raw-rgb,width=640,height=480 ! "
+                    "gdkpixbufsink name=sink"
+                    )
+        else:
+            pipe += ("videoscale ! video/x-raw-rgb,width=160,height=120 ! "
+                     "gdkpixbufsink name=sink"
+                    )
+            
         self.pipeline = gst.parse_launch(pipe)
 
-        previewSink = self.pipeline.get_by_name("previewSink")
-        previewSink.set_xwindow_id(cameraArea.window.xid)
+        if 0:
+            previewSink = self.pipeline.get_by_name("previewSink")
+            previewSink.set_xwindow_id(cameraArea.window.xid)
 
         sink = self.pipeline.get_by_name("sink")
 
         pixbufTimes = []
         def onMsg(bus, msg):
             if msg.src == sink and msg.structure.get_name() == 'pixbuf':
-
                 now = time.time()
                 pixbufTimes[:] = [t for t in pixbufTimes if t > now - 5] + [now]
                 dispatcher.send("videoStats",
@@ -102,7 +109,7 @@ class VideoPipeline(object):
                 hue, mask = self.updateHuePic(pb)
                 matches = self.updateHueMatchPic(hue, mask)
                 centers = self.updateBlobPic(matches)
-                onFrame(centers)
+                onFrame(centers, pb)
             return True
 
         bus = self.pipeline.get_bus()

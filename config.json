@@ -5,8 +5,8 @@
     "yellow": 0.13
   }, 
   "adjustments": {
-    "minSaturation": 0.54, 
-    "minValue": 0.3, 
+    "minSaturation": 0.8, 
+    "minValue": 0.13, 
     "recentFrames": 22.0, 
     "hueDistance": 0.062, 
     "minCoverage": 0.01
