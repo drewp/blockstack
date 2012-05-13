@@ -1,6 +1,6 @@
 
 class Sound(object):
-    musicVolume = .3
+    musicVolume = .6
     def __init__(self, loader, base, enabled=True):
         self.base = base
         if not enabled:

@@ -3,12 +3,14 @@
 
 """
 from __future__ import division
-import sys, types, time, glob, logging, json, tempfile, subprocess, os, traceback
+import time, glob, logging, os, traceback, argparse
 import gobject, gtk, numpy
-from gtk.gtkgl.apputils import GLArea
 from twisted.python.util import sibpath
 from louie import dispatcher
-from direct.task                  import Task
+
+from direct.task import Task
+from pandac.PandaModules import loadPrcFileData
+
 import gamescene 
 from play import GameState
 from vision import BlockHues, VideoPipeline
@@ -22,7 +24,6 @@ log = logging.getLogger()
 
 numpy.set_printoptions(precision=4, linewidth=200, suppress=True,
                        threshold=4000)
-from pandac.PandaModules import loadPrcFileData, WindowProperties, DynamicTextFont, AntialiasAttrib
 
 def logTime(func):
     def inner(*args, **kw):
@@ -56,13 +57,19 @@ def swapInGlArea(wtree, widgetName, ga):
         
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--sound', action='store_true',
+                        help='enable sound and music')
+    parser.add_argument('--colors', nargs='*',
+                        help='names of colors of your blocks (need at least 2)',
+                        default=['yellow', 'green', 'blue'])
+    args = parser.parse_args()
+
     loadPrcFileData("", "window-type none")
 
     import direct.directbase.DirectStart # this sticks a ton into __builtins__
-    sound = Sound(loader=loader, base=base, enabled=False)
-    colors = ['yellow', 'green', 'blue',
-              #'purple'
-              ]
+    sound = Sound(loader=loader, base=base, enabled=args.sound)
+    colors = args.colors
 
     state = GameState(sound, colors)
 

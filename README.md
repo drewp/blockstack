@@ -2,7 +2,7 @@
 Running:
 
 buildout2.7
-bin/python blockstack
+bin/python blockstack --sound --colors yellow green blue
 
 
 Dependencies
