@@ -7,9 +7,10 @@ import sys, random, pyglet, math, time, colorsys
 import gtk
 from timing import logTime
 
-from pandac.PandaModules import loadPrcFileData, WindowProperties
+from pandac.PandaModules import loadPrcFileData, WindowProperties, DynamicTextFont, AntialiasAttrib
 from panda3d.core import PointLight,Spotlight, Vec4, Vec3, VBase4, PerspectiveLens, PandaNode
-from panda3d.core import AmbientLight, DirectionalLight, ModelNode, PlaneNode, Fog, Texture, Material
+from panda3d.core import AmbientLight, DirectionalLight, ModelNode, PlaneNode, Fog, Texture, Material, TextNode
+from direct.gui.OnscreenText import OnscreenText
 
 class GameScene(object):
     def __init__(self, gtkParentWidget):
@@ -42,51 +43,100 @@ class GameScene(object):
          if n not in self.originalNodes]
         self.base.render.setLightOff()
         self.cubeNodes = {} # color: NodePath
+
+        for n in ['centerMessageNode', 'cornerMessageNode']:
+            if getattr(self, n, None):
+                getattr(self, n).destroy()
         
     def init(self):
         """setup calls that can be repeated on code reload"""
         self.resetNodes()
 
-        self.base.setBackgroundColor(0,0,0)
+        self.base.setBackgroundColor(0, .2, 0)
+        self.base.render.setShaderAuto() # pp shading
+        self.base.render.setAttrib(
+            AntialiasAttrib.make(AntialiasAttrib.MMultisample))
+        
+        if 1:
+            cam = self.base.render.find("camera")
+            # I don't know how to set cam position
 
-        cam = self.base.render.find("camera")
-        # I don't know how to set cam position
+            f = Fog("fog")
+            f.setColor(0,0,0)
+            f.setLinearRange(18, 25)
+            self.base.render.setFogOff()#(f) # doesn't work with setShaderAuto
 
-        f = Fog("fog")
-        f.setColor(0,0,0)
-        f.setLinearRange(18, 25)
-        self.base.render.setFog(f)
+            self.videoWall, self.videoTexture = self.makeVideoWall(self.base.render)
+ 
+        if 1:
+            self.cubes = self.base.render.attachNewNode(ModelNode("cubes"))
+            self.cubes.setPos(-2.3, 20, -3)
 
-        self.videoWall, self.videoTexture = self.makeVideoWall(self.base.render)
+            ground = self.makeGround(self.cubes)
 
-        self.cubes = self.base.render.attachNewNode(ModelNode("cubes"))
-        self.cubes.setPos(0, 20, -3)
+        if 1:
+            pl = self.base.render.attachNewNode(PointLight("point"))
+            pl.setPos(2, 10, 10)
+            #pl.node().setColor(VBase4(.7, .7, .7, 1))
+            pl.node().setAttenuation( Vec3( 0, 0, 0.005 ) )
+            #pl.node().setShadowCaster(True, 512, 512)
+            self.base.render.setLight(pl)
 
-        self.makeGround(self.cubes)
+        if 1:
+            spot = Spotlight('spot')
+            spot.setColor(VBase4(1, 1, 1, 1))
+            lens = PerspectiveLens()
+            lens.setFov(9)
+            spot.setLens(lens)
             
-        pl = self.base.render.attachNewNode(PointLight("point"))
-        pl.setPos(3, 10, 10)
-        pl.node().setColor(Vec4(1, 1, 1, 1))
-        self.base.render.setLight(pl)
-        pl.node().setAttenuation( Vec3( 0, 0, 0.003 ) ) 
+            spotNode = self.base.render.attachNewNode(spot)
+            spotNode.setPos(2, 0, 10)
+            spotNode.lookAt(self.cubes)
+            self.base.render.setLight(spotNode)
 
-        slight = Spotlight('slight')
-        slight.setColor(VBase4(1, 1, 1, 1))
-        lens = PerspectiveLens()
-        slight.setLens(lens)
-        slnp = self.base.render.attachNewNode(slight)
-        slnp.setPos(2, 50, 0)
-        #self.base.render.setLight(slnp)
+        self.centerMessageNode, self.cornerMessageNode = self.makeMessages()
 
-        self.base.render.ls()
         self.updateCubes()
+        self.base.render.ls()
+
+    def makeMessages(self):
+        # note, Blox2 has nothing but a-zA-z0-9, and other chars will
+        # make panda segfault
+        font = DynamicTextFont("/usr/share/fonts/truetype/aenigma/Blox2.ttf")
+        font.setPixelSize(90)
+        center = OnscreenText(text="cEnTeR mEsSaGe", fg=(1,1,1,1),
+                              font=font, scale=.3,
+                              shadow=(0,0,0,1), shadowOffset=(.1, .1),
+                              )
+
+        font = DynamicTextFont("/usr/share/fonts/truetype/ubuntu-font-family/Ubuntu-B.ttf")
+        font.setPixelSize(30)
+        corner = OnscreenText(text="corner message", fg=(1,1,1,1),
+                              font=font, scale=.1, pos=(-1, .9),
+                              shadow=(0,0,0,1), shadowOffset=(.1, .1),
+                              )
+        return center, corner
+    
+    def makeGround(self, parent):
+        ground = self.base.loader.loadModel("plane")
+        ground.setHpr(0, -90, 0)
+        ground.setScale(10)
+        ground.setColor(*colorsys.hsv_to_rgb(.6, .4, .55))
+        ground.reparentTo(parent)
+
+        m = Material("gnd")
+        m.setDiffuse(VBase4(1,1,1,1))
+        ground.setMaterial(m)
+        
+        return ground
 
     def makeVideoWall(self, parent): 
         w = self.base.loader.loadModel("plane")
         w.reparentTo(parent)
-        w.setPos(5,20,0)
+        w.setPos(3.5, 15, -1)
         w.setHpr(0, 180, 0)
-        w.setScale(5, 1, 5)
+        size = 6
+        w.setScale(size, 1, size/1.33)
         w.setTwoSided(True)
         tx = Texture("video")
         tx.setup2dTexture(256, 256, Texture.TUnsignedByte, Texture.FRgb8)
@@ -100,38 +150,30 @@ class GameScene(object):
 
         w.setFogOff()
         return w, tx
-
-    def makeGround(self, parent):
-        ground = self.base.loader.loadModel("plane")
-        ground.setHpr(0, -90, 0)
-        ground.setScale(10)
-        ground.setColor(*colorsys.hsv_to_rgb(.6, .4, .35))
-        ground.reparentTo(parent)
-
-        m = Material("gnd")
-        m.setAmbient(1,0,0)
-        ground.setMaterial(m)
-        
-        return ground
-
+    
     def getOrCreateCube(self, name):
         if name not in self.cubeNodes:
             cube = self.base.loader.loadModel("cube")
             cube.setName(name)
             cube.setScale(.5)
-            cube.setColor(*self.previewColor(name))
             cube.reparentTo(self.cubes)
             cube.setPos(0, 0, 1)
             self.cubeNodes[name] = cube
-            self.base.render.ls()
-        return self.cubeNodes[name]
+        c = self.cubeNodes[name]
+        c.setColor(*self.previewColor(name))
+        return c
 
     def updateVideo(self):
         scl = self.videoFrame.scale_simple(256, 256, gtk.gdk.INTERP_BILINEAR)
         self.videoTexture.setRamImage(scl.get_pixels())
+ 
+    def updateMessages(self):
+        altCase = ''.join([c.upper() if i % 2 else c.lower()
+                           for i,c in enumerate(self.currentMessage or "")])
+        self.centerMessageNode.setText(altCase)
+        self.cornerMessageNode.setText(self.cornerMessage or "")
 
     def updateCubes(self):
-        self.updateVideo()
         R = random.Random(self.animSeed)
         for name, pos in self.pose.items():
             pos = num.array(pos) + [0, 10 * (1 - self.enter), 0]
@@ -152,17 +194,6 @@ class GameScene(object):
          for n, c in self.cubeNodes.items()
          if n not in used]
 
-    def refresh(self):
-        if self.videoFrame:
-            glPushMatrix()
-            try:
-                glTranslatef(4, 1.2, -1)
-                glScalef(1.6, 1.2, 1)
-                glScalef(1.2, 1.2, 1)
-                self.imageCard(self.videoFrame)
-            finally:
-                glPopMatrix()
-
     def resize_panda_window(self, widget, request) :
         props = WindowProperties().getDefault()
         props = WindowProperties(self.base.win.getProperties())
@@ -170,94 +201,3 @@ class GameScene(object):
         props.setSize(request.width, request.height)
         props.setParentWindow(widget.window.xid)
         self.base.win.requestProperties(props)
-
-class GameScenex(GLScene):
-
-    def drawLightning(self, pos):
-        glPushAttrib(GL_ALL_ATTRIB_BITS)
-        glDisable(GL_LIGHTING)
-        glDisable(GL_FOG)
-        glColor3f(1,1,0)
-        glLineWidth(3)
-        for s, e in pos:
-            glBegin(GL_LINE_STRIP)
-            for t in range(0, 100):
-                t /= 100
-                glVertex3f(s[0] + t*(e[0]-s[0]) + random.random()**4 * .2,
-                           s[1] + t*(e[1]-s[1]) + random.random()**4 * .1,
-                           3*math.sin(t*math.pi) + random.random()**4 * .1,
-                           )
-            glEnd()
-        glPopAttrib()
-
-    def display2d(self):
-        if not self.currentMessage and not self.cornerMessage:
-            return
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        GLU.gluOrtho2D(0, 640, 0, 480)
-        glMatrixMode(GL_MODELVIEW)
-        glLoadIdentity()
-        
-        glDisable(GL_LIGHTING)
-        glBindTexture(GL_TEXTURE_2D, 0)
-        glDisable(GL_TEXTURE_2D)
-        glColor3f(1,1,1)
-        try:
-            if self.currentMessage:
-                glPushMatrix()
-                try:
-                    glTranslatef(640/2, 480/2, 0)
-                    t = pyglet.text.Label(font_name='Arial', font_size=40,
-                                          anchor_x="center", anchor_y="center",
-                                          text=self.currentMessage)
-                    t.draw()
-                finally:
-                    glPopMatrix()
-
-            if self.cornerMessage:
-                glPushMatrix()
-                try:
-                    glTranslatef(640-30, 480-30, 0)
-                    t = pyglet.text.Label(font_name='Arial', font_size=20,
-                                          anchor_x="right", anchor_y="bottom",
-                                          text=self.cornerMessage)
-                    t.draw()
-                finally:
-                    glPopMatrix()
-            
-        finally:
-            glEnable(GL_LIGHTING)
-
-    def imageCard(self, multiImage):
-        """card facing +Z from -1<x<1 -1<y<1"""
-
-        glPushAttrib(GL_ALL_ATTRIB_BITS)
-        try:
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-            glEnable(GL_TEXTURE_2D)
-            glDisable(GL_FOG)
-
-            pixels = (multiImage
-                      .scale_simple(256, 256, gtk.gdk.INTERP_BILINEAR)
-                      .get_pixels_array())
-
-            if not hasattr(self, "texId"):
-                self.texId = glGenTextures(1)
-                glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
-            glBindTexture(GL_TEXTURE_2D, self.texId)
-
-            # faster way would be to make an empty power-of-2 texture,
-            # then use subimage2d to write the video-aspect rect into
-            # it. Pick the video part with the tx coords.
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
-                         pixels.shape[0], pixels.shape[1], 0,
-                         GL_RGB, GL_UNSIGNED_BYTE, pixels)                
-
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-            glDisable(GL_LIGHTING)
-
-            glCallList(self.cardList)
-        finally:
-            glPopAttrib()

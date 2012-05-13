@@ -86,7 +86,7 @@ def main():
         t = os.path.getmtime('gamescene.py')
         if t == getattr(gameScene, '_mtime', 0):
             return True
-        print "reload gamescene"
+        print "\n\nreload gamescene"
         reload(gamescene)
         gameScene._mtime = t
         gameScene.__class__ = gamescene.GameScene
@@ -97,7 +97,6 @@ def main():
         return True
     gobject.timeout_add(500, reloadScene)
     state.setScore = wtree.get_object("score").set_label
-    state.setGameDesc = wtree.get_object("gameDesc").set_label
 
     dev = glob.glob("/dev/v4l/by-id/*")[0]
     vp = VideoPipeline(dev, wtree.get_object("rawVideo"),
@@ -106,7 +105,7 @@ def main():
                        wtree.get_object("blobBox"),
                        adjGet=lambda n: wtree.get_object(n).get_value(),
                        blockHues=bs,
-                       onFrame=state.onFrame,
+                       onFrame=state.update,
                        pipelineSection=wtree.get_object("pipelineSection"),
                        )
 
@@ -127,6 +126,14 @@ def main():
     state.sound = Sound(enabled=False, idle_add=gobject.idle_add)
 
     taskMgr.add(gtk_iteration, "gtk")
+    def animation(task):
+        dt = task.time - getattr(task, 'last', 0)
+        task.last = task.time
+        state.update()
+        gameScene.updateCubes()
+        gameScene.updateMessages()
+        return Task.cont
+    taskMgr.add(animation, 'animation')
     run()
 
 

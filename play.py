@@ -44,12 +44,16 @@ class GameState(object):
         self.startAnim("entering", .3)
         self.sound.playEffect('swoosh')
 
-    def onFrame(self, blobCenters, videoPixbuf):
+
+    def update(self, blobCenters=None, videoPixbuf=None):
+        """blobCenters and videoPixbuf are only set when the video
+        frame is new"""
         now = time.time()
-        
+        haveNewFrame = blobCenters is not None
+
         if self.state == 'hold' and (
             self._forceMatch or 
-            self.poseMatch(blobCenters, self.currentPose)):
+            (haveNewFrame and self.poseMatch(blobCenters, self.currentPose))):
             self._forceMatch = False
             self.gameMatches += 1
             solveTime = time.time() - self.poseStart
@@ -73,24 +77,24 @@ class GameState(object):
             if now < self.timedGameRange[1]:
                 match = "%s %s" % (self.gameMatches,
                                    "match" if self.gameMatches == 1 else "matches")
-                self.setGameDesc(
-                    "%s, %.2f seconds left" % (
+                self.scene.cornerMessage = (
+                    "%s, %.1f seconds left" % (
                         match,
                         self.timedGameRange[1] - now))
-                self.scene.cornerMessage = match
             else:
                 self.timedGameEnd(now)
         elif self.gameState == "showScore":
             if now > self.gameNext:
                 self.scene.currentMessage = None
                 self.gameState = "none"
-                self.setGameDesc("")
                 self.enterNewPose()
         else:
             self.scene.cornerMessage = None
 
-        self.scene.videoFrame = videoPixbuf
-        self.scene.updateVideo()
+        if haveNewFrame:
+            self.scene.videoFrame = videoPixbuf
+            self.scene.updateVideo()
+        
         self.scene.pose = self.currentPose
         self.scene.animSeed = self.animSeed
         self.scene.enter = self.animPos(now, 'entering', 1, bounce=True)
@@ -114,11 +118,9 @@ class GameState(object):
 
     def timedGameEnd(self, now):
         self.sound.playEffect("gameOver")
-        self.scene.currentMessage = "Game over: %s %s" % (
+        self.scene.currentMessage = "Game over %s %s" % (
             self.gameMatches, "match" if self.gameMatches == 1 else "matches")
-        self.setGameDesc(self.scene.currentMessage +
-                         " in %g seconds" % 
-                         (self.timedGameRange[1] - self.timedGameRange[0]))
+
         self.currentPose = {}
         self.gameState = "showScore"
         self.gameNext = now + 6
