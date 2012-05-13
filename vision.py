@@ -1,8 +1,11 @@
 from __future__ import division
-import gtk, gst, goocanvas, numpy, cv2,  time
+import gtk, gst, numpy, cv2,  time
 from timing import logTime
 from louie import dispatcher
 from play import colorPairs
+import sys
+sys.path.append("/usr/lib/pyshared/python2.7/")
+import goocanvas
 
 def labeledScale(name, config):
     row = gtk.VBox()
