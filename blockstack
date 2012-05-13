@@ -22,6 +22,7 @@ log = logging.getLogger()
 
 numpy.set_printoptions(precision=4, linewidth=200, suppress=True,
                        threshold=4000)
+from pandac.PandaModules import loadPrcFileData, WindowProperties, DynamicTextFont, AntialiasAttrib
 
 def logTime(func):
     def inner(*args, **kw):
@@ -53,15 +54,12 @@ def swapInGlArea(wtree, widgetName, ga):
     p.add(ga)
     ga.show()
         
-def gtk_iteration(*args, **kw):
-    """ We handle the gtk events in this task added to Panda TaskManager """
-    while gtk.events_pending():
-        gtk.main_iteration_do(False)
-    return Task.cont
-
 
 def main():
-    sound = Sound(enabled=False)
+    loadPrcFileData("", "window-type none")
+
+    import direct.directbase.DirectStart # this sticks a ton into __builtins__
+    sound = Sound(loader=loader, base=base, enabled=False)
     colors = ['yellow', 'green', 'blue',
               #'purple'
               ]
@@ -123,9 +121,15 @@ def main():
         dispatcher.connect(signal=label, receiver=recv, weak=False)
 
     state.start()
-    state.sound = Sound(enabled=False, idle_add=gobject.idle_add)
+    state.sound = sound#Sound(enabled=False, idle_add=gobject.idle_add)
 
+    def gtk_iteration(*args, **kw):
+        """ We handle the gtk events in this task added to Panda TaskManager """
+        while gtk.events_pending():
+            gtk.main_iteration_do(False)
+        return Task.cont
     taskMgr.add(gtk_iteration, "gtk")
+
     def animation(task):
         dt = task.time - getattr(task, 'last', 0)
         task.last = task.time
@@ -134,7 +138,7 @@ def main():
         gameScene.updateMessages()
         return Task.cont
     taskMgr.add(animation, 'animation')
-    run()
 
+    run()
 
 main()

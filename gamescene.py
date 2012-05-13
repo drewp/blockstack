@@ -1,21 +1,15 @@
 from __future__ import division
-from OpenGL import GL, GLUT, GLU
-from gtk.gtkgl.apputils import GLScene
 import numpy as num
-import sys, random, pyglet, math, time, colorsys
-
+import random, colorsys
 import gtk
 from timing import logTime
 
-from pandac.PandaModules import loadPrcFileData, WindowProperties, DynamicTextFont, AntialiasAttrib
-from panda3d.core import PointLight,Spotlight, Vec4, Vec3, VBase4, PerspectiveLens, PandaNode
-from panda3d.core import AmbientLight, DirectionalLight, ModelNode, PlaneNode, Fog, Texture, Material, TextNode
+from pandac.PandaModules import WindowProperties, DynamicTextFont, AntialiasAttrib
+from panda3d.core import PointLight,Spotlight, Vec3, VBase4, PerspectiveLens, AmbientLight, DirectionalLight, ModelNode, Fog, Texture, Material
 from direct.gui.OnscreenText import OnscreenText
 
 class GameScene(object):
     def __init__(self, gtkParentWidget):
-
-
         self.pose = {}
         self.enter = 1 # 0..1 flies in the cubes
         self.currentMessage = self.cornerMessage = None
@@ -23,10 +17,8 @@ class GameScene(object):
         self.animSeed = 0
 
         self.gtkParentWidget = gtkParentWidget
-        loadPrcFileData("", "window-type none")
 
-        import direct.directbase.DirectStart # this sticks a ton into __builtins__
-        self.base = base
+        self.base = base # from DirectStart
 
         props = WindowProperties().getDefault()
         props.setOrigin(0, 0)
