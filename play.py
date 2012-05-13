@@ -90,11 +90,12 @@ class GameState(object):
             self.scene.cornerMessage = None
 
         self.scene.videoFrame = videoPixbuf
+        self.scene.updateVideo()
         self.scene.pose = self.currentPose
         self.scene.animSeed = self.animSeed
         self.scene.enter = self.animPos(now, 'entering', 1, bounce=True)
         self.scene.explode = self.animPos(now, 'explode', 0)
-#        self.scene.invalidate() # could run this less, but i'm expecting more anim
+        self.scene.updateCubes()
 
     def timedGameMake(self):
         t = time.time() + 3
@@ -147,7 +148,7 @@ class GameState(object):
             row = [colors.pop() for i in range(random.randrange(1, maxWidth+1))]
             x = - (len(row)-1) / 2
             for color in row:
-                out[color] = (x, y, 0)
+                out[color] = (x, 0, y)
                 x += 1
             y += 1
             prevWidth = len(row)
