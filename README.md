@@ -1,3 +1,21 @@
+
+Running:
+
+buildout2.7
+bin/python blockstack
+
+
+Dependencies
+
+ubuntu packages:
+
+  ttf-aenigma
+  ttf-ubuntu-font-family
+
+  panda3d, etc
+
+-----------------------------------------------------------------
+
 Question.wav is converted from this sound set:
     KDE Sound theme "Borealis"
     Version 0.8 (09/01/2004)
@@ -55,3 +73,5 @@ more auto calibration
 more game: react better to fast players, let them build chains of fast matches
 synth the entering sound according to the exact block layout
 better lighting in game mode, glsl and spots and beams
+
+what happened to ground's lighting? see if the old version just worked. layout the scene better. don't update cube pos only when there's a video frame, maybe panda has a more frequent update callback to use. on-screen text, check the sample programs for lots of it. different lighting for training/timed modes. 
