@@ -47,7 +47,7 @@ def launch_panda_window(panda_widget, size) :
     mid = PandaNode('mid')
     panda.attachNewNode(mid)
 #    slnp.lookAt(mid)
-#    render.setLight(slnp)
+    render.setLight(slnp)
     
 
 def resize_panda_window(widget, request) :
@@ -56,28 +56,10 @@ def resize_panda_window(widget, request) :
     props = WindowProperties(base.win.getProperties())
     props.setOrigin(0, 0)
     props.setSize(request.width, request.height)
-    props.setParentWindow(get_widget_id(widget))
+    props.setParentWindow(widget.window.xid)
     base.win.requestProperties(props)
 
-def setup_panda_events(window) :
-    """ Setup mouse events in Panda """
-    obj = DirectObject()
-    obj.accept("mouse1"    , print_info, ["Left press"])
-    obj.accept("mouse1-up" , print_info, ["Left release"])
-    obj.accept("mouse2"    , print_info, ["Wheel press"])
-    obj.accept("mouse2-up" , print_info, ["Wheel release"])
-    obj.accept("mouse3"    , print_info, ["Right press"])
-    obj.accept("mouse3-up" , print_info, ["Right release"])
-    obj.accept("wheel_up"  , print_info, ["Scrolling up"])
-    obj.accept("wheel_down", print_info, ["Scrolling down"])
-    return obj
-
 # == GTK SETUP == #
-
-def get_widget_id(widget) :
-    """ Retrieve gtk widget ID to tell the Panda window to draw on it """
-    if platform.system() == "Windows" : return widget.window.handle
-    else                              : return widget.window.xid
 
 def gtk_iteration(*args, **kw):
     """ We handle the gtk events in this task added to Panda TaskManager """
@@ -132,69 +114,15 @@ def launch_gtk_window(size) :
     # ==
     return window, drawing_area
 
-def add_gtk_shortcuts(window, actions) :
-    # Create the accel group and add it to the window
-    accel_group = gtk.AccelGroup()
-    window.add_accel_group(accel_group)
-    # Create the action group
-    action_group = gtk.ActionGroup('ActionGroup')
-    # ==
-    # Could give the list of action to add_toggle_actions method all at once and then connect each one
-    for action in actions :
-        action_group.add_toggle_actions([action])
-        gtk_action = action_group.get_action(action[0])
-        gtk_action.set_accel_group(accel_group)
-        gtk_action.connect_accelerator()
-    # ==
-    return accel_group, action_group
-
-# == INFO == #
-
-mouse_info = False
-def toggle_print_mouse_infos(*args, **kw) :
-    global mouse_info
-    mouse_info = not mouse_info
-    print "\n\n Printing Mouse Infos : %s \n\n" % mouse_info
-
-def mouse_info_task(*args, **kw) :
-    global mouse_info
-    if mouse_info :
-        md = base.win.getPointer(0)
-        print "Mouse in window: ", md.getInWindow()
-        print "Mouse position : ", md.getX(), md.getY()
-    # ==
-    return Task.cont
-
-def print_info(message) :
-    print message
-
-# == MAIN == #
-
+#base = taskMgr = run = render = loader = None # DirectStart is going to replace these
 def main() :
-    setup()
-    # ==
-    import direct.directbase.DirectStart
-    # ==
+    loadPrcFileData("", "window-type none")
+    import direct.directbase.DirectStart # this sticks a ton into __builtins__
     size                 = (800, 600)
     window, drawing_area = launch_gtk_window(size)
     launch_panda_window(drawing_area, size)
     base.disableMouse()
-    # ==
-    # Here we create the shortcuts/actions.
-    # For more details, see http://www.pygtk.org/pygtk2reference/class-gtkactiongroup.html#method-gtkactiongroup--add-toggle-actions
-    #
-    # action = (name, stock_id, label, accelerator(=key), tooltip, callback, active_flag (optional)
-    shortcuts = [
-                 ("move" , None, "move" , "m", "move" , lambda _ : move_pointer(window, drawing_area, (size[0] / 2.0, size[1] / 2.0))),
-                 ("print", None, "print", "p", "print", lambda _ : print_info("GTK print shortcut")),
-                ]
-    accel_group, action_group = add_gtk_shortcuts(window, shortcuts)
-    # ==
-    direct_object = setup_panda_events(window)
-    taskMgr.add(mouse_info_task, "print info")
-    # ==
     taskMgr.add(gtk_iteration, "gtk")
-    # ==
     run()
 
 if __name__ == '__main__':
