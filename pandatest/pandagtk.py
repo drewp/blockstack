@@ -13,9 +13,6 @@ from panda3d.core import AmbientLight,DirectionalLight
 
 # == PANDA SETUP == #
 
-def setup() :
-    # We don't want the basic window to open
-    loadPrcFileData("", "window-type none")
 
 def launch_panda_window(panda_widget, size) :
     """
@@ -26,7 +23,7 @@ def launch_panda_window(panda_widget, size) :
     props = WindowProperties().getDefault()
     props.setOrigin(0, 0)
     props.setSize(*size)
-    props.setParentWindow(get_widget_id(panda_widget))
+    props.setParentWindow(panda_widget.window.xid)
     base.openDefaultWindow(props=props)
     # ==
     panda_widget.connect("size_allocate", resize_panda_window)
@@ -45,8 +42,8 @@ def launch_panda_window(panda_widget, size) :
     slight.setColor(VBase4(1, 1, 1, 1))
     lens = PerspectiveLens()
     slight.setLens(lens)
-#    slnp = render.attachNewNode(slight)
-#    slnp.setPos(2, 20, 0)
+    slnp = render.attachNewNode(slight)
+    slnp.setPos(2, 20, 0)
     mid = PandaNode('mid')
     panda.attachNewNode(mid)
 #    slnp.lookAt(mid)

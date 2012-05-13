@@ -1,5 +1,4 @@
 from __future__ import division
-from OpenGL.GL import *
 from OpenGL import GL, GLUT, GLU
 from gtk.gtkgl.apputils import GLScene
 import numpy as num
@@ -7,6 +6,66 @@ import sys, random, pyglet, math, time, colorsys
 
 import gtk
 from timing import logTime
+
+from pandac.PandaModules import loadPrcFileData, WindowProperties
+from panda3d.core import PointLight,Spotlight, Vec4, Vec3, VBase4, PerspectiveLens, PandaNode
+from panda3d.core import AmbientLight, DirectionalLight
+
+class GameScene(object):
+    def __init__(self, gtkParentWidget):
+        self.gtkParentWidget = gtkParentWidget
+        loadPrcFileData("", "window-type none")
+
+        import direct.directbase.DirectStart # this sticks a ton into __builtins__
+        self.base = base
+
+        props = WindowProperties().getDefault()
+        props.setOrigin(0, 0)
+        props.setSize(1,1)
+        props.setParentWindow(self.gtkParentWidget.window.xid)
+        self.base.openDefaultWindow(props=props)
+
+        self.gtkParentWidget.connect("size_allocate", self.resize_panda_window)
+        self.originalNodes = self.base.render.getChildren()
+
+    def resetNodes(self):
+        [n.removeNode()
+         for n in self.base.render.getChildren()
+         if n not in self.originalNodes]
+        self.base.render.setLightOff()
+        
+    def init(self):
+        """setup calls that can be repeated on code reload"""
+        self.resetNodes()
+        panda = self.base.loader.loadModel("panda")
+        panda.setColor(1,1,0)
+        panda.reparentTo(self.base.render)
+        panda.setPos(0, 40, -5)
+
+        pl = self.base.render.attachNewNode( PointLight( "redPointLight" ) )
+        pl.node().setColor( Vec4( .9, .8, .8, 1 ) )
+        self.base.render.setLight(pl)
+        pl.node().setAttenuation( Vec3( 0, 0, 0.05 ) ) 
+
+        slight = Spotlight('slight')
+        slight.setColor(VBase4(1, 1, 1, 1))
+        lens = PerspectiveLens()
+        slight.setLens(lens)
+        slnp = self.base.render.attachNewNode(slight)
+        slnp.setPos(2, 10, 0)
+        mid = PandaNode('mid')
+        panda.attachNewNode(mid)
+    #    slnp.lookAt(mid)
+        self.base.render.setLight(slnp)
+
+    def resize_panda_window(self, widget, request) :
+        props = WindowProperties().getDefault()
+        props = WindowProperties(self.base.win.getProperties())
+        props.setOrigin(0, 0)
+        props.setSize(request.width, request.height)
+        props.setParentWindow(widget.window.xid)
+        self.base.win.requestProperties(props)
+
 
 def cube(color=(1,1,1), center=(0,0,0), rot=(0, 0,0,0), side=1, wire=False,
          tess=1):
@@ -54,7 +113,7 @@ def groundPlane():
     cube(color=colorsys.hsv_to_rgb(.6, .4, .005), tess=60)
     glPopMatrix()
 
-class GameScene(GLScene):
+class GameScenex(GLScene):
     def __init__(self):
         GLScene.__init__(self,
                          gtk.gdkgl.MODE_RGB   |

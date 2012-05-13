@@ -94,7 +94,7 @@ class GameState(object):
         self.scene.animSeed = self.animSeed
         self.scene.enter = self.animPos(now, 'entering', 1, bounce=True)
         self.scene.explode = self.animPos(now, 'explode', 0)
-        self.scene.invalidate() # could run this less, but i'm expecting more anim
+#        self.scene.invalidate() # could run this less, but i'm expecting more anim
 
     def timedGameMake(self):
         t = time.time() + 3
