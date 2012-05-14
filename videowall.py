@@ -1,6 +1,7 @@
 from __future__ import division
+import gtk, numpy
 from panda3d.core import Texture, Material, VBase4, PNMImage
-import gtk
+from debug import logTime
 
 class VideoWall(object):
     res = 256
@@ -31,4 +32,9 @@ class VideoWall(object):
 
     def updateFromPixbuf(self, pb):
         scaled = pb.scale_simple(self.res, self.res, gtk.gdk.INTERP_BILINEAR)
-        self.tx.setRamImage(scaled.get_pixels())
+
+        # about 3ms
+        n = numpy.fromstring(scaled.get_pixels(), dtype=numpy.uint8).reshape((-1,3))
+        flipped = numpy.fliplr(n).tostring()
+        
+        self.tx.setRamImage(flipped)
