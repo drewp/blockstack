@@ -19,14 +19,14 @@ Dependencies
 ubuntu packages
 ---------------
 
-  ttf-aenigma
-  ttf-ubuntu-font-family
-  python-twisted-core
-  python-pygoocanvas
-  python-gtk2
-  python-numpy
+* ttf-aenigma
+* ttf-ubuntu-font-family
+* python-twisted-core
+* python-pygoocanvas
+* python-gtk2
+* python-numpy
 
-  panda3d1.8 (add to /etc/apt/sources.list 'deb http://archive.panda3d.org/ubuntu oneiric main')
+* panda3d1.8 (add to /etc/apt/sources.list 'deb http://archive.panda3d.org/ubuntu oneiric main')
 
 Running
 =======
@@ -39,7 +39,7 @@ easy_install vs ppython
 
 If ppython has sys.version like '2.7.2+ ...', you might get this failure:
 
-  File "/usr/lib/python2.7/dist-packages/zc/buildout/easy_install.py", line 191, in _get_version
+    File "/usr/lib/python2.7/dist-packages/zc/buildout/easy_install.py", line 191, in _get_version
     version = re.match('(\d[.]\d)([.].*\d)?$', version).group(1)
 
 A workaround is to hack that line to look like this:
