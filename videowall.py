@@ -1,0 +1,34 @@
+from __future__ import division
+from panda3d.core import Texture, Material, VBase4, PNMImage
+import gtk
+
+class VideoWall(object):
+    res = 256
+    def __init__(self, loader, parentNodePath):
+        w = loader.loadModel("plane")
+        w.reparentTo(parentNodePath)
+        w.setPos(3.5, 15, -1)
+        w.setColor(1,0,0)
+        w.setHpr(0, 180, 0)
+        size = 6
+        w.setScale(size, 1, size / 1.33)
+        w.setTwoSided(True)
+        
+        self.tx = Texture("video")
+        self.tx.setup2dTexture(self.res, self.res, Texture.TUnsignedByte, Texture.FRgb8)
+
+        # this makes some important setup call
+        self.tx.load(PNMImage(self.res, self.res))
+
+        w.setTexture(self.tx)
+
+        m = Material("vid")
+        m.setTwoside(True)
+        m.setEmission(VBase4(1,1,1,1))
+        w.setMaterial(m)
+
+        w.setFogOff()
+
+    def updateFromPixbuf(self, pb):
+        scaled = pb.scale_simple(self.res, self.res, gtk.gdk.INTERP_BILINEAR)
+        self.tx.setRamImage(scaled.get_pixels())

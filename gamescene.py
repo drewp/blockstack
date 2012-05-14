@@ -5,7 +5,7 @@ import gtk
 from timing import logTime
 
 from pandac.PandaModules import WindowProperties, DynamicTextFont, AntialiasAttrib
-from panda3d.core import PointLight,Spotlight, Vec3, VBase4, PerspectiveLens, AmbientLight, DirectionalLight, ModelNode, Fog, Texture, Material
+from panda3d.core import PointLight,Spotlight, Vec3, VBase4, PerspectiveLens, AmbientLight, DirectionalLight, ModelNode, Fog, Texture, Material, TextureStage, PNMImage
 from direct.gui.OnscreenText import OnscreenText
 
 class GameScene(object):
@@ -15,7 +15,8 @@ class GameScene(object):
         self.currentMessage = self.cornerMessage = None
         self.videoFrame = None
         self.animSeed = 0
-
+        self.cubeNodes = {} # color: NodePath
+        
         self.gtkParentWidget = gtkParentWidget
 
         self.base = base # from DirectStart
@@ -34,7 +35,7 @@ class GameScene(object):
          for n in self.base.render.getChildren()
          if n not in self.originalNodes]
         self.base.render.setLightOff()
-        self.cubeNodes = {} # color: NodePath
+        self.cubeNodes = {}
 
         for n in ['centerMessageNode', 'cornerMessageNode']:
             if getattr(self, n, None):
@@ -56,14 +57,15 @@ class GameScene(object):
             f = Fog("fog")
             f.setColor(0,0,0)
             f.setLinearRange(18, 25)
-            self.base.render.setFogOff()#(f) # doesn't work with setShaderAuto
+            self.base.render.setFog(f) 
 
-            self.videoWall, self.videoTexture = self.makeVideoWall(self.base.render)
- 
+            import videowall
+            reload(videowall)
+            self.videoWall = videowall.VideoWall(self.base.loader, self.base.render)
+
         if 1:
             self.cubes = self.base.render.attachNewNode(ModelNode("cubes"))
             self.cubes.setPos(-2.3, 20, -3)
-
             ground = self.makeGround(self.cubes)
 
         if 1:
@@ -78,7 +80,7 @@ class GameScene(object):
             spot = Spotlight('spot')
             spot.setColor(VBase4(1, 1, 1, 1))
             lens = PerspectiveLens()
-            lens.setFov(9)
+            lens.setFov(5)
             spot.setLens(lens)
             
             spotNode = self.base.render.attachNewNode(spot)
@@ -122,27 +124,6 @@ class GameScene(object):
         
         return ground
 
-    def makeVideoWall(self, parent): 
-        w = self.base.loader.loadModel("plane")
-        w.reparentTo(parent)
-        w.setPos(3.5, 15, -1)
-        w.setHpr(0, 180, 0)
-        size = 6
-        w.setScale(size, 1, size/1.33)
-        w.setTwoSided(True)
-        tx = Texture("video")
-        tx.setup2dTexture(256, 256, Texture.TUnsignedByte, Texture.FRgb8)
-        tx.setRamImage("\x6f"*(256*256*3))
-        w.setTexture(tx)
-
-        m = Material("vid")
-        m.setTwoside(True)
-        m.setEmission((1,1,1,1))
-        w.setMaterial(m)
-
-        w.setFogOff()
-        return w, tx
-    
     def getOrCreateCube(self, name):
         if name not in self.cubeNodes:
             cube = self.base.loader.loadModel("cube")
@@ -156,16 +137,21 @@ class GameScene(object):
         return c
 
     def updateVideo(self):
-        scl = self.videoFrame.scale_simple(256, 256, gtk.gdk.INTERP_BILINEAR)
-        self.videoTexture.setRamImage(scl.get_pixels())
+        if not getattr(self, 'videoWall', None):
+            return
+        self.videoWall.updateFromPixbuf(self.videoFrame)
  
     def updateMessages(self):
+        if not getattr(self, 'centerMessageNode', None):
+            return
         altCase = ''.join([c.upper() if i % 2 else c.lower()
                            for i,c in enumerate(self.currentMessage or "")])
         self.centerMessageNode.setText(altCase)
         self.cornerMessageNode.setText(self.cornerMessage or "")
 
     def updateCubes(self):
+        if not getattr(self, 'cubes', None):
+            return
         R = random.Random(self.animSeed)
         for name, pos in self.pose.items():
             pos = num.array(pos) + [0, 10 * (1 - self.enter), 0]

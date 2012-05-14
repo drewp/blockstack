@@ -1,7 +1,7 @@
 from __future__ import division
 import gtk, gst, numpy, cv2,  time
 from timing import logTime
-from louie import dispatcher
+from pydispatch import dispatcher
 from play import colorPairs
 import sys
 sys.path.append("/usr/lib/pyshared/python2.7/")

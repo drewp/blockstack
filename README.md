@@ -12,7 +12,7 @@ ubuntu packages:
   ttf-aenigma
   ttf-ubuntu-font-family
 
-  panda3d, etc
+  panda3d1.8
 
 -----------------------------------------------------------------
 
