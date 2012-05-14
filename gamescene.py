@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as num
 import random, colorsys
 import gtk
-from timing import logTime
+from debug import logTime
 
 from pandac.PandaModules import WindowProperties, DynamicTextFont, AntialiasAttrib
 from panda3d.core import PointLight,Spotlight, Vec3, VBase4, PerspectiveLens, AmbientLight, DirectionalLight, ModelNode, Fog, Texture, Material, TextureStage, PNMImage

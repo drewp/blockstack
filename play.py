@@ -2,7 +2,7 @@ from __future__ import division
 import random, time
 import numpy
 from math import atan2, pi
-from timing import logTime
+from debug import logTime
 from pydispatch import dispatcher
 
 class GameState(object):

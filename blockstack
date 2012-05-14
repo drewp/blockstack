@@ -25,22 +25,6 @@ log = logging.getLogger()
 numpy.set_printoptions(precision=4, linewidth=200, suppress=True,
                        threshold=4000)
 
-def logTime(func):
-    def inner(*args, **kw):
-        t1 = time.time()
-        try:
-            ret = func(*args, **kw)
-        finally:
-            log.info("Call to %s took %.1f ms" % (
-                func.__name__, 1000 * (time.time() - t1)))
-        return ret
-    return inner
-
-def debug():
-    from IPython.frontend.terminal.interactiveshell import TerminalInteractiveShell
-    shell = TerminalInteractiveShell(user_ns=vars())
-    shell.mainloop()
-
 def addToolbar(wtree, label, cb):
     but1 = gtk.ToolButton(label=label)
     wtree.get_object("toolbar1").insert(but1, -1)

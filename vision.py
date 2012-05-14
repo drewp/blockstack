@@ -1,6 +1,6 @@
 from __future__ import division
 import gtk, gst, numpy, cv2,  time
-from timing import logTime
+from debug import logTime
 from pydispatch import dispatcher
 from play import colorPairs
 import sys

@@ -1,5 +1,4 @@
-import time
-import logging
+import time, logging
 log = logging.getLogger()
 
 def logTime(func):
@@ -12,3 +11,8 @@ def logTime(func):
                 func.__name__, 1000 * (time.time() - t1)))
         return ret
     return inner
+
+def debug():
+    from IPython.frontend.terminal.interactiveshell import TerminalInteractiveShell
+    shell = TerminalInteractiveShell(user_ns=vars())
+    shell.mainloop()
