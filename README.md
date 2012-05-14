@@ -1,18 +1,51 @@
 
-Running:
+Blockstack is an open-source game combining real colored blocks, a
+webcam, and a virtual 3d scene. Players of the game are in a race to
+arrange the real-life blocks to match the tower configuration shown on
+the virtual blocks. The computer watches the real blocks and figures
+out the moment the player has made the correct tower. The game score
+is a function of how many towers the player can match within a fixed
+time. 
 
-buildout2.7
-bin/python blockstack --sound --colors yellow green blue
+The software uses Panda3d, opengl, gstreamer (camera pipeline), v4l2
+(camera controls), opencv (colorspace), numpy (image analysis), and
+goocanvas (debugging diagram).
+
 
 
 Dependencies
+============
 
-ubuntu packages:
+ubuntu packages
+---------------
 
   ttf-aenigma
   ttf-ubuntu-font-family
+  python-twisted-core
+  python-pygoocanvas
+  python-gtk2
+  python-numpy
 
-  panda3d1.8
+  panda3d1.8 (add to /etc/apt/sources.list 'deb http://archive.panda3d.org/ubuntu oneiric main')
+
+Running
+=======
+
+    buildout2.7
+    bin/python blockstack --sound --colors yellow green blue
+
+easy_install vs ppython
+-----------------------
+
+If ppython has sys.version like '2.7.2+ ...', you might get this failure:
+
+  File "/usr/lib/python2.7/dist-packages/zc/buildout/easy_install.py", line 191, in _get_version
+    version = re.match('(\d[.]\d)([.].*\d)?$', version).group(1)
+
+A workaround is to hack that line to look like this:
+
+    version = re.match('(\d[.]\d)([.].*[\d\+])?$', version).group(1)
+
 
 -----------------------------------------------------------------
 
