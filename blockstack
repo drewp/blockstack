@@ -63,6 +63,8 @@ def main():
     mainwin.connect("destroy", gtk.main_quit)
     mainwin.show_all()
 
+    wtree.get_object("pipelineSection").set_expanded(False)
+    
     addToolbar(wtree, "Force match", lambda tb: state.forceMatch())
     addToolbar(wtree, "Start timed game", lambda tb: state.timedGameMake())
 
@@ -126,6 +128,7 @@ def main():
         task.last = task.time
         state.update()
         gameScene.updateCubes()
+        gameScene.updateLighting()
         gameScene.updateMessages()
         return Task.cont
     taskMgr.add(animation, 'animation')

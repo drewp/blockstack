@@ -22,6 +22,7 @@ class GameState(object):
         """once at process startup"""
         self._forceMatch = False        
         self.enterNewPose()
+        self.scene.setLighting('train')
 
     def animPos(self, now, inState, default, bounce=False):
         """if we're in this state, return the anim fraction, else default"""
@@ -110,11 +111,13 @@ class GameState(object):
         self.sound.playEffect("gameStart")
         self.currentPose = {}
         self.scene.pose = self.currentPose
+        self.scene.setLighting('readyGame')
 
     def timedGameStart(self):
         self.scene.currentMessage = None
         self.gameState = "playing"
         self.enterNewPose()
+        self.scene.setLighting('game')
 
     def timedGameEnd(self, now):
         self.sound.playEffect("gameOver")
@@ -124,6 +127,7 @@ class GameState(object):
         self.currentPose = {}
         self.gameState = "showScore"
         self.gameNext = now + 6
+        self.scene.setLighting('train')
 
     def forceMatch(self):
         self._forceMatch = True
