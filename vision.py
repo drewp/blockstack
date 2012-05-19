@@ -2,7 +2,8 @@ from __future__ import division
 import gtk, gst, numpy, cv2,  time
 from debug import logTime
 from pydispatch import dispatcher
-from play import colorPairs
+from play import colorPairs, positiveAngle
+from math import atan2, pi, degrees
 import sys
 sys.path.append("/usr/lib/pyshared/python2.7/")
 import goocanvas
@@ -213,6 +214,9 @@ class VideoPipeline(object):
                            x=x-r/2, y=y-r/2, width=r, height=r,
                            line_width=.7,
                            fill_color=fill)
+        center = numpy.array([
+            sum(t[0] for t in toDraw.values()) / len(toDraw),
+            sum(t[1] for t in toDraw.values()) / len(toDraw)]) + [0, -3]
 
         def line(p1, p2):
             goocanvas.Polyline(parent=self.blobCanvasGroup,
@@ -220,10 +224,20 @@ class VideoPipeline(object):
                                line_width=2,
                                stroke_color='black',
                                end_arrow=True)
+            v = numpy.array(p1) - p2
+            ang = positiveAngle(-1*atan2(v[0], v[1]), pi)
+            where = (numpy.array(p1) + p2) / 2
+            where = center + (where - center) * 4
+            goocanvas.Text(parent=self.blobCanvasGroup,
+                           x=where[0], y=where[1],
+                           anchor=gtk.ANCHOR_CENTER,
+                           fill_color="#cc4400",
+                           font="Sans 6",
+                           text="%d" % degrees(ang)).raise_(None)
 
         # this will be lines like what's used for comparisons, but
         # they might not be exactly the same ones
-        for c1, c2 in colorPairs(sorted(toDraw.keys())):
+        for c1, c2 in colorPairs(toDraw.keys()):
             line(toDraw[c1][:2], toDraw[c2][:2])
     
     def __del__(self):

@@ -212,7 +212,7 @@ class GameScene(object):
             return
         R = random.Random(self.animSeed)
         for name, pos in self.pose.items():
-            pos = num.array(pos) + [0, 10 * (1 - self.enter), 0]
+            pos = num.array([pos[0], 0, pos[1]]) + [0, 10 * (1 - self.enter), 0]
             if self.explode:
                 noise= num.array([R.uniform(0,1),
                                   R.uniform(0,1),

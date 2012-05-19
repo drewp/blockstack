@@ -154,7 +154,7 @@ class GameState(object):
             row = [colors.pop() for i in range(random.randrange(1, maxWidth+1))]
             x = - (len(row)-1) / 2
             for color in row:
-                out[color] = (x, 0, y)
+                out[color] = (x, y)
                 x += 1
             y += 1
             prevWidth = len(row)
@@ -163,9 +163,10 @@ class GameState(object):
     def poseMatch(self, positions1, positions2):
         if not positions1 or not positions2:
             return False
-        pairs = colorPairs(sorted(positions2.keys()))
+        pairs = colorPairs(positions2.keys())
         try:
             angles = []
+            #print "\nuser:"
             for p in [positions1, positions2]:
                 row = []
                 for c1, c2 in pairs:
@@ -174,6 +175,8 @@ class GameState(object):
                     offset = pi if p is positions1 else 0
                     flip = -1 if p is positions1 else 1
                     row.append(positiveAngle(flip*atan2(v[0], v[1]), offset))
+                    #print "%s to %s %.3f" % (c1[0], c2[0], row[-1])
+                #print ""
                 angles.append(row)
             err = sum(x * x for x in map(diffAngle, zip(angles[0], angles[1])))
             dispatcher.send("err", txt="error=%.3f" % err)
