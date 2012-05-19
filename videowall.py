@@ -8,10 +8,10 @@ class VideoWall(object):
     def __init__(self, loader, parentNodePath):
         w = loader.loadModel("plane")
         w.reparentTo(parentNodePath)
-        w.setPos(3.5, 18, -.75)
+        size = 6
+        w.setPos(3.5, 15, size / 2 - 3)
         w.setColor(1,0,0)
         w.setHpr(0, 180, 0)
-        size = 6
         w.setScale(size, 1, size / 1.33)
         w.setTwoSided(True)
         

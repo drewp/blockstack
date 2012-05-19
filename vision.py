@@ -16,7 +16,7 @@ def labeledScale(name, config):
                          value=config['value'])
 
     scl = gtk.HScale(adj)
-    scl.set_digits(2)
+    scl.set_digits(3)
     scl.set_property('value-pos', gtk.POS_LEFT)
     row.pack_start(scl)
     return row, adj
@@ -30,7 +30,7 @@ class BlockHues(object):
 
             row, adj = labeledScale(
                 color,
-                dict(minimum=0, maximum=1, step=.01,
+                dict(minimum=0, maximum=1, step=.002,
                      # i could take a pic of all the blocks and
                      # cluster the hues to get these
                      value=0))
@@ -84,7 +84,7 @@ class VideoPipeline(object):
                     "gdkpixbufsink name=sink"
                     )
         else:
-            pipe += ("videoscale ! video/x-raw-rgb,width=160,height=120 ! "
+            pipe += ("videoscale ! video/x-raw-rgb,width=240,height=180 ! "
                      "gdkpixbufsink name=sink"
                     )
             
@@ -104,15 +104,16 @@ class VideoPipeline(object):
                 dispatcher.send("videoStats",
                                 txt="fps = %.1f" % (len(pixbufTimes) / 5.))
 
-                pb = msg.structure['pixbuf']
+                pbHigh = msg.structure['pixbuf']
+                pbLow = pbHigh.scale_simple(120, 90, gtk.gdk.INTERP_BILINEAR)
                 self.previewEnabled = self.pipelineSection.get_property(
                     "expanded")
                 if self.previewEnabled:
-                    rawVideoWidget.set_from_pixbuf(pb)
-                hue, mask = self.updateHuePic(pb)
+                    rawVideoWidget.set_from_pixbuf(pbHigh)
+                hue, mask = self.updateHuePic(pbLow)
                 matches = self.updateHueMatchPic(hue, mask)
                 centers = self.updateBlobPic(matches)
-                onFrame(centers, pb)
+                onFrame(centers, pbHigh)
             return True
 
         bus = self.pipeline.get_bus()
@@ -222,7 +223,7 @@ class VideoPipeline(object):
 
         # this will be lines like what's used for comparisons, but
         # they might not be exactly the same ones
-        for c1, c2 in colorPairs(toDraw.keys()):
+        for c1, c2 in colorPairs(sorted(toDraw.keys())):
             line(toDraw[c1][:2], toDraw[c2][:2])
     
     def __del__(self):

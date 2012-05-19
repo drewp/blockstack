@@ -11,8 +11,7 @@ from pydispatch import dispatcher
 from direct.task import Task
 from pandac.PandaModules import loadPrcFileData
 
-import gamescene 
-from play import GameState
+import gamescene, play
 from vision import BlockHues, VideoPipeline
 from sound import Sound
 from config import Config
@@ -39,6 +38,28 @@ def swapInGlArea(wtree, widgetName, ga):
     p.add(ga)
     ga.show()
         
+def setupAutoReload(gameScene, state):
+    def reloadScene():
+        t = [os.path.getmtime(f) for f in [
+            'gamescene.py',
+            'videowall.py',
+            'play.py']]
+        if t == getattr(gameScene, '_mtime', 0):
+            return True
+        print "\n\nreload gamescene"
+        reload(gamescene)
+        gameScene._mtime = t
+        gameScene.__class__ = gamescene.GameScene
+        try:
+            gameScene.init()
+        except:
+            traceback.print_exc()
+
+        reload(play)
+        state.__class__ = play.GameState
+            
+        return True
+    gobject.timeout_add(500, reloadScene)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -55,7 +76,7 @@ def main():
     sound = Sound(loader=loader, base=base, enabled=args.sound)
     colors = args.colors
 
-    state = GameState(sound, colors)
+    state = play.GameState(sound, colors)
 
     wtree = gtk.Builder()
     wtree.add_from_file(sibpath(__file__, "ui.glade"))
@@ -73,20 +94,8 @@ def main():
     gameScene = gamescene.GameScene(wtree.get_object("gameArea"))
     gameScene.previewColor = bs.previewColor
     state.scene = gameScene
-    def reloadScene():
-        t = [os.path.getmtime(f) for f in ['gamescene.py', 'videowall.py']]
-        if t == getattr(gameScene, '_mtime', 0):
-            return True
-        print "\n\nreload gamescene"
-        reload(gamescene)
-        gameScene._mtime = t
-        gameScene.__class__ = gamescene.GameScene
-        try:
-            gameScene.init()
-        except:
-            traceback.print_exc()
-        return True
-    gobject.timeout_add(500, reloadScene)
+
+    setupAutoReload(gameScene, state)
     state.setScore = wtree.get_object("score").set_label
 
     dev = glob.glob("/dev/v4l/by-id/*")[0]

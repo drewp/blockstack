@@ -68,7 +68,7 @@ class GameScene(object):
             self.videoWall = videowall.VideoWall(self.base.loader, self.base.render)
 
         self.cubes = self.base.render.attachNewNode(ModelNode("cubes"))
-        self.cubes.setPos(-2.3, 20, -3)
+        self.cubes.setPos(-4.3, 18, -3)
         ground = self.makeGround(self.cubes)
 
         lights = self.base.render.attachNewNode("lights")
@@ -113,10 +113,10 @@ class GameScene(object):
             bg.node().setShadowCaster(True)
 
 
-            up = makeSpot(self.gameLights, color=VBase4(.5,1,1,1), fov=20,
-                          atten=.007)
-            up.setPos(self.cubes.getPos().x, 10, .1)
-            up.lookAt(self.cubes, Point3(0, 0, .6))
+            up = makeSpot(self.gameLights, color=VBase4(.6,.6,.6,1), fov=25,
+                          atten=.009)
+            up.setPos(self.cubes.getPos().x, 10, .4)
+            up.lookAt(self.cubes, Point3(0, 0, 1.3))
             self.base.render.setLight(up)
 
             self.rotLights = []
@@ -157,14 +157,14 @@ class GameScene(object):
         font = DynamicTextFont("/usr/share/fonts/truetype/aenigma/Blox2.ttf")
         font.setPixelSize(90)
         center = OnscreenText(text="cEnTeR mEsSaGe", fg=(1,1,1,1),
-                              font=font, scale=.15,
+                              font=font, scale=.3,
                               shadow=(0,0,0,1), shadowOffset=(.1, .1),
                               )
 
         font = DynamicTextFont("/usr/share/fonts/truetype/ubuntu-font-family/Ubuntu-B.ttf")
         font.setPixelSize(30)
         corner = OnscreenText(text="corner message", fg=(1,1,1,1),
-                              font=font, scale=.05, pos=(-.5, .9),
+                              font=font, scale=.09, pos=(-1.3, .9),
                               shadow=(0,0,0,1), shadowOffset=(.1, .1),
                               )
         return center, corner

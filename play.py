@@ -163,7 +163,7 @@ class GameState(object):
     def poseMatch(self, positions1, positions2):
         if not positions1 or not positions2:
             return False
-        pairs = colorPairs(positions2.keys())
+        pairs = colorPairs(sorted(positions2.keys()))
         try:
             angles = []
             for p in [positions1, positions2]:
