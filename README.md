@@ -101,10 +101,11 @@ dldn music from http://dig.ccmixter.org
 
 --------------
 
+todo:
 lightning between the live+opengl matching blocks
 more auto calibration
 more game: react better to fast players, let them build chains of fast matches
 synth the entering sound according to the exact block layout
-better lighting in game mode, glsl and spots and beams
 
-what happened to ground's lighting? see if the old version just worked. layout the scene better. don't update cube pos only when there's a video frame, maybe panda has a more frequent update callback to use. on-screen text, check the sample programs for lots of it. different lighting for training/timed modes. 
+
+
