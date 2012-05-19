@@ -72,6 +72,7 @@ class GameState(object):
                 self.state = "hold"
 
         if self.gameState == "ready":
+            self.scene.cornerMessage = None
             if now > self.timedGameRange[0]:
                 self.timedGameStart()
         elif self.gameState == "playing":
@@ -90,7 +91,7 @@ class GameState(object):
                 self.gameState = "none"
                 self.enterNewPose()
         else:
-            self.scene.cornerMessage = None
+            self.scene.cornerMessage = "Training mode"
 
         if haveNewFrame:
             self.scene.videoFrame = videoPixbuf

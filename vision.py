@@ -7,6 +7,7 @@ from math import atan2, pi, degrees
 import sys
 sys.path.append("/usr/lib/pyshared/python2.7/")
 import goocanvas
+from panda3d.core import Vec2
 
 def labeledScale(name, config):
     row = gtk.VBox()
@@ -123,7 +124,6 @@ class VideoPipeline(object):
         self.pipeline.set_state(gst.STATE_PLAYING)
 
         self.blobCanvas = goocanvas.Canvas()
-        self.blobCanvas.set_size_request(160, 120)
         blobBox.pack_start(self.blobCanvas)
         self.blobCanvas.show()
         self.blobCanvasGroup = None
@@ -202,11 +202,14 @@ class VideoPipeline(object):
             self.blobCanvasGroup.remove()
         self.blobCanvasGroup = goocanvas.Group(parent=root)
         toDraw = {}
+        size = self.blobCanvas.get_allocation()
         for color, (x,y) in centers.items():
             fill = "#%02X%02X%02X" % tuple(c*255 for c in
                                            self.blockHues.previewColor(color))
 
-            toDraw[color] = (x, y, fill)
+            toDraw[color] = (x / 128 * size.width,
+                             y / 128 * size.height,
+                             fill)
 
         for color, (x, y, fill) in toDraw.items():
             r = 10
@@ -214,9 +217,9 @@ class VideoPipeline(object):
                            x=x-r/2, y=y-r/2, width=r, height=r,
                            line_width=.7,
                            fill_color=fill)
-        center = numpy.array([
+        center = Vec2(
             sum(t[0] for t in toDraw.values()) / len(toDraw),
-            sum(t[1] for t in toDraw.values()) / len(toDraw)]) + [0, -3]
+            sum(t[1] for t in toDraw.values()) / len(toDraw))
 
         def line(p1, p2):
             goocanvas.Polyline(parent=self.blobCanvasGroup,
@@ -224,12 +227,16 @@ class VideoPipeline(object):
                                line_width=2,
                                stroke_color='black',
                                end_arrow=True)
-            v = numpy.array(p1) - p2
-            ang = positiveAngle(-1*atan2(v[0], v[1]), pi)
-            where = (numpy.array(p1) + p2) / 2
-            where = center + (where - center) * 4
+            p1 = Vec2(*p1)
+            p2 = Vec2(*p2)
+            v = p1 - p2
+            ang = positiveAngle(-1*atan2(v.getX(), v.getY()), pi)
+            where = (p1 + p2).__div__(2.0) # truediv bug
+            direction = where - center
+            direction.normalize()
+            where = where + direction * 10
             goocanvas.Text(parent=self.blobCanvasGroup,
-                           x=where[0], y=where[1],
+                           x=where.getX(), y=where.getY(),
                            anchor=gtk.ANCHOR_CENTER,
                            fill_color="#cc4400",
                            font="Sans 6",

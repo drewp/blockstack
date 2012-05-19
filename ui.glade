@@ -443,8 +443,8 @@
                             <property name="can_focus">False</property>
                             <child>
                               <object class="GtkVBox" id="blobBox">
-                                <property name="width_request">160</property>
-                                <property name="height_request">120</property>
+                                <property name="width_request">320</property>
+                                <property name="height_request">200</property>
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
