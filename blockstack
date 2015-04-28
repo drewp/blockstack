@@ -6,7 +6,11 @@ from __future__ import division
 import time, glob, logging, os, traceback, argparse, sys
 import gobject, gtk, numpy
 from twisted.python.util import sibpath
-from pydispatch import dispatcher
+from louie import dispatcher
+
+# avoid segfault by importing these earlier
+import panda3d.core
+import pandac
 
 from direct.task import Task
 from pandac.PandaModules import loadPrcFileData

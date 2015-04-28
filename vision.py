@@ -1,7 +1,7 @@
 from __future__ import division
 import gtk, gst, numpy, cv2,  time
 from debug import logTime
-from pydispatch import dispatcher
+from louie import dispatcher
 from play import colorPairs, positiveAngle
 from math import atan2, pi, degrees
 import sys

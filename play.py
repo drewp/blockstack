@@ -3,7 +3,7 @@ import random, time
 import numpy
 from math import atan2, pi
 from debug import logTime
-from pydispatch import dispatcher
+from louie import dispatcher
 
 class GameState(object):
     def __init__(self, sound, colors):
